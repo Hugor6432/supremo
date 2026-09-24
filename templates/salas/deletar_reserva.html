@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<h1>Deletar Reserva</h1>
+<div class="alert alert-danger mt-4">
+    <h4>Tem certeza que deseja deletar esta reserva?</h4>
+    <p><strong>Sala:</strong> {{ reserva.sala.nome }}</p>
+    <p><strong>Responsável:</strong> {{ reserva.responsavel }}</p>
+    <p><strong>Data:</strong> {{ reserva.data_inicio|date:"d/m/Y H:i" }} até {{ reserva.data_fim|date:"d/m/Y H:i" }}</p>
+    <p class="mb-0">Esta ação não pode ser desfeita!</p>
+</div>
+<div class="row mt-4">
+    <div class="col-md-6">
+        <form method="post">
+            {% csrf_token %}
+            <div class="d-grid gap-2 d-md-flex">
+                <button type="submit" class="btn btn-danger">Sim, deletar</button>
+                <a href="{% url 'lista_reservas' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

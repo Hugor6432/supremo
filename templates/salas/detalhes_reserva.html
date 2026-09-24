@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="row mb-4">
+    <div class="col-md-8"><h1>📅 Detalhes da Reserva</h1></div>
+    <div class="col-md-4 text-end">
+        <a href="{% url 'lista_reservas' %}" class="btn btn-secondary">← Voltar</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        
+        <!-- Card Principal -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header {% if reserva.status == 'confirmada' %}bg-success{% elif reserva.status == 'pendente' %}bg-warning{% else %}bg-danger{% endif %} text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">{{ reserva.sala.nome }}</h4>
+                    <span class="badge bg-light text-dark">{{ reserva.get_status_display }}</span>
+                </div>
+            </div>
+            
+            <div class="card-body">
+                <!-- Responsável -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <h6 class="text-muted mb-2">👤 Responsável</h6>
+                        <p class="fs-5">{{ reserva.responsavel }}</p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- Data e Hora -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-2">🕐 Data e Hora de Início</h6>
+                        <p class="fs-5">{{ reserva.data_inicio|date:"d/m/Y \à\s H:i" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-2">⏳ Data e Hora de Fim</h6>
+                        <p class="fs-5">{{ reserva.data_fim|date:"d/m/Y \à\s H:i" }}</p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- Recorrência -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-2">🔄 Recorrência</h6>
+                        {% if reserva.recorrencia %}
+                            <p class="fs-5">{{ reserva.recorrencia.get_frequencia_display }} - A cada {{ reserva.recorrencia.intervalo }}</p>
+                        {% else %}
+                            <p class="text-muted">Sem recorrência (reserva única)</p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-2">📍 Capacidade da Sala</h6>
+                        <p class="fs-5">{{ reserva.sala.capacidade }} pessoas</p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- Descrição -->
+                {% if reserva.descricao %}
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <h6 class="text-muted mb-2">📝 Motivo da Reserva</h6>
+                        <p class="fs-5">{{ reserva.descricao }}</p>
+                    </div>
+                </div>
+                <hr>
+                {% endif %}
+                
+                <!-- Aviso de Conflito -->
+                {% if reserva.tem_conflito %}
+                <div class="alert alert-warning alert-dismissible fade show mb-3" role="alert">
+                    <strong>⚠️ Aviso Importante!</strong> Esta reserva tem conflito com outra no mesmo horário!
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Card Recursos da Sala -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">🔧 Recursos Disponíveis Nesta Sala</h5>
+            </div>
+            
+            <div class="card-body">
+                {% if reserva.sala.recursos.all %}
+                    <div class="row">
+                        {% for recurso in reserva.sala.recursos.all %}
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex align-items-start">
+                                <span class="badge bg-success me-2 mt-1">✓</span>
+                                <div>
+                                    <strong>{{ recurso.nome }}</strong>
+                                    {% if recurso.descricao %}
+                                        <br><small class="text-muted">{{ recurso.descricao }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted">Esta sala não possui recursos adicionados.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Botões de Ação -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-start mb-5">
+            <a href="{% url 'editar_reserva' reserva.id %}" class="btn btn-warning btn-lg">✏️ Editar Reserva</a>
+            <a href="{% url 'deletar_reserva' reserva.id %}" class="btn btn-danger btn-lg">🗑️ Deletar Reserva</a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
