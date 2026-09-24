@@ -34,6 +34,7 @@ Pressione: Ctrl + C
 ✅ CRUD Recursos
 ✅ Validação de Conflito de Horário
 ✅ Busca e Filtro de Salas (nome/descrição, capacidade mínima, recurso)
+✅ Validação: término da reserva depois do início
 ✅ Status: Pendente/Confirmada/Cancelada
 ✅ Recorrência: Diária/Semanal/Mensal
 ✅ Admin Django
