@@ -26,3 +26,16 @@ class ReservaForm(forms.ModelForm):
             'recorrencia': forms.Select(attrs={'class': 'form-control'}),
             'status': forms.Select(attrs={'class': 'form-control'}),
         }
+
+    # Feature 2 - Validação customizada
+    def clean(self):
+        cleaned_data = super().clean()
+        data_inicio = self.cleaned_data.get('data_inicio')
+        data_fim = self.cleaned_data.get('data_fim')
+
+        # Só compara se as duas datas foram preenchidas corretamente
+        if data_inicio and data_fim and data_fim <= data_inicio:
+            raise forms.ValidationError(
+                "O horário de término da reserva deve ser depois do horário de início."
+            )
+        return cleaned_data
