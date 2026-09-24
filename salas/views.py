@@ -1,14 +1,42 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from .models import Sala, Reserva
+from django.db.models import Q
+from .models import Sala, Recurso, Reserva
 from .forms import ReservaForm, SalaForm
 
 
 # ===== VIEWS DE SALAS =====
 
 def lista_salas(request):
+    # Feature 1 - Busca e Filtro
+    busca = request.GET.get('q', '').strip()
+    capacidade = request.GET.get('capacidade', '')
+    recurso = request.GET.get('recurso', '')
+
     salas = Sala.objects.all()
-    return render(request, 'salas/lista_salas.html', {'salas': salas})
+
+    # Busca por texto: procura no nome OU na descrição da sala (Q = desafio extra)
+    if busca:
+        salas = salas.filter(Q(nome__icontains=busca) | Q(descricao__icontains=busca))
+
+    # Filtro por capacidade mínima
+    if capacidade.isdigit():
+        salas = salas.filter(capacidade__gte=int(capacidade))
+
+    # Filtro por recurso disponível na sala
+    if recurso:
+        salas = salas.filter(recursos__nome=recurso)
+
+    salas = salas.distinct().order_by('nome')
+
+    contexto = {
+        'salas': salas,
+        'recursos': Recurso.objects.values_list('nome', flat=True).distinct().order_by('nome'),
+        'opcoes_capacidade': [5, 10, 20, 50, 100],
+        'capacidade_selecionada': capacidade,
+        'recurso_selecionado': recurso,
+    }
+    return render(request, 'salas/lista_salas.html', contexto)
 
 
 def criar_sala(request):
