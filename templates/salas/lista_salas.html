@@ -6,7 +6,38 @@
     <div class="col-md-4 text-end"><a href="{% url 'criar_sala' %}" class="btn btn-primary btn-lg">+ Nova Sala</a></div>
 </div>
 
-{% if salas %}
+<!-- Feature 1: Busca e Filtro -->
+<form method="get" class="card card-body shadow-sm border-0 mb-4">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-5">
+            <label for="q" class="form-label">🔎 Buscar sala</label>
+            <input type="text" id="q" name="q" class="form-control" placeholder="Nome ou descrição da sala" value="{{ request.GET.q }}">
+        </div>
+        <div class="col-md-3">
+            <label for="capacidade" class="form-label">👥 Capacidade mínima</label>
+            <select id="capacidade" name="capacidade" class="form-select">
+                <option value="">Qualquer</option>
+                {% for c in opcoes_capacidade %}
+                    <option value="{{ c }}" {% if capacidade_selecionada == c|stringformat:"d" %}selected{% endif %}>{{ c }}+ pessoas</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label for="recurso" class="form-label">🔧 Recurso</label>
+            <select id="recurso" name="recurso" class="form-select">
+                <option value="">Todos</option>
+                {% for r in recursos %}
+                    <option value="{{ r }}" {% if recurso_selecionado == r %}selected{% endif %}>{{ r }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-grid gap-1">
+            <button type="submit" class="btn btn-primary">Filtrar</button>
+            <a href="{% url 'lista_salas' %}" class="btn btn-outline-secondary btn-sm">Limpar</a>
+        </div>
+    </div>
+</form>
+
 <div class="row">
     {% for sala in salas %}
     <div class="col-md-6 col-lg-4 mb-4">
@@ -15,7 +46,7 @@
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0">{{ sala.nome }}</h5>
             </div>
-            
+
             <!-- Body da Sala -->
             <div class="card-body">
                 <!-- Informações Principais -->
@@ -25,9 +56,9 @@
                         <p class="mb-0 text-muted small">{{ sala.descricao }}</p>
                     {% endif %}
                 </div>
-                
+
                 <hr>
-                
+
                 <!-- Recursos -->
                 <div class="mb-3">
                     <h6 class="mb-2">🔧 Recursos ({{ sala.recursos.count }})</h6>
@@ -46,9 +77,9 @@
                         <p class="text-muted small mb-0">Nenhum recurso adicionado</p>
                     {% endif %}
                 </div>
-                
+
                 <hr>
-                
+
                 <!-- Ações -->
                 <div class="d-grid gap-2">
                     <a href="{% url 'editar_sala' sala.id %}" class="btn btn-sm btn-warning">✏️ Editar</a>
@@ -57,13 +88,22 @@
             </div>
         </div>
     </div>
+    {% empty %}
+    <div class="col-12">
+        {% if request.GET.q or request.GET.capacidade or request.GET.recurso %}
+        <div class="alert alert-warning text-center py-5">
+            <h5>🔍 Nenhuma sala encontrada com esses filtros</h5>
+            <p>Tente buscar outro nome ou limpar os filtros.</p>
+            <a href="{% url 'lista_salas' %}" class="btn btn-outline-secondary">Limpar filtros</a>
+        </div>
+        {% else %}
+        <div class="alert alert-info text-center py-5">
+            <h5>📭 Nenhuma sala cadastrada ainda</h5>
+            <p>Crie uma sala para começar</p>
+            <a href="{% url 'criar_sala' %}" class="btn btn-primary btn-lg">+ Criar Nova Sala</a>
+        </div>
+        {% endif %}
+    </div>
     {% endfor %}
 </div>
-{% else %}
-<div class="alert alert-info text-center py-5">
-    <h5>📭 Nenhuma sala cadastrada ainda</h5>
-    <p>Crie uma sala para começar</p>
-    <a href="{% url 'criar_sala' %}" class="btn btn-primary btn-lg">+ Criar Nova Sala</a>
-</div>
-{% endif %}
 {% endblock %}
