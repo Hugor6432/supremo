@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="row mb-4">
+    <div class="col-md-8"><h1>📍 Salas Disponíveis</h1></div>
+    <div class="col-md-4 text-end"><a href="{% url 'criar_sala' %}" class="btn btn-primary btn-lg">+ Nova Sala</a></div>
+</div>
+
+{% if salas %}
+<div class="row">
+    {% for sala in salas %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+            <!-- Header da Sala -->
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">{{ sala.nome }}</h5>
+            </div>
+            
+            <!-- Body da Sala -->
+            <div class="card-body">
+                <!-- Informações Principais -->
+                <div class="mb-3">
+                    <p class="mb-1"><strong>👥 Capacidade:</strong> {{ sala.capacidade }} pessoas</p>
+                    {% if sala.descricao %}
+                        <p class="mb-0 text-muted small">{{ sala.descricao }}</p>
+                    {% endif %}
+                </div>
+                
+                <hr>
+                
+                <!-- Recursos -->
+                <div class="mb-3">
+                    <h6 class="mb-2">🔧 Recursos ({{ sala.recursos.count }})</h6>
+                    {% if sala.recursos.all %}
+                        <ul class="list-unstyled small">
+                            {% for recurso in sala.recursos.all %}
+                            <li class="mb-1">
+                                <span class="badge bg-success">{{ recurso.nome }}</span>
+                                {% if recurso.descricao %}
+                                    <br><small class="text-muted">{{ recurso.descricao }}</small>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted small mb-0">Nenhum recurso adicionado</p>
+                    {% endif %}
+                </div>
+                
+                <hr>
+                
+                <!-- Ações -->
+                <div class="d-grid gap-2">
+                    <a href="{% url 'editar_sala' sala.id %}" class="btn btn-sm btn-warning">✏️ Editar</a>
+                    <a href="{% url 'deletar_sala' sala.id %}" class="btn btn-sm btn-danger">🗑️ Deletar</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info text-center py-5">
+    <h5>📭 Nenhuma sala cadastrada ainda</h5>
+    <p>Crie uma sala para começar</p>
+    <a href="{% url 'criar_sala' %}" class="btn btn-primary btn-lg">+ Criar Nova Sala</a>
+</div>
+{% endif %}
+{% endblock %}
