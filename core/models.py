@@ -24,7 +24,6 @@ class DaOrganizacao(models.Model):
     organizacao = models.ForeignKey(
         'core.Organizacao',
         on_delete=models.PROTECT,
-        null=True,  # etapa 1 da migração; vira obrigatória na etapa 3
     )
 
     class Meta:
