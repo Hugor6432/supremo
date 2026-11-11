@@ -1,11 +1,11 @@
 # Backlog da P2: Reserva de Salas como mini-SaaS
 
-Os quatro pilares da P2 divididos em tarefas, como pedido na Aula 13.
+Os quatro pilares da P2 divididos em tarefas.
 Cada linha deve virar **uma issue no GitHub**, com o rótulo do pilar
 (`multi-organizacao`, `perfis`, `api`, `dashboard`, `melhorias-p1`).
-Nenhuma tarefa é maior do que uma sessão de aula.
+Nenhuma tarefa é maior do que uma sessão de trabalho.
 
-## Pilar 1: Multi-organização (Aula 14) · rótulo `multi-organizacao`
+## Pilar 1: Multi-organização · rótulo `multi-organizacao`
 
 - [x] Criar app `core` com o model `Organizacao`
 - [x] Criar a base abstrata `DaOrganizacao` e herdar em `Sala`, `Recurso`, `Recorrencia` e `Reserva`
@@ -17,7 +17,7 @@ Nenhuma tarefa é maior do que uma sessão de aula.
 - [x] Filtrar a API por organização (`get_queryset` e `perform_create`)
 - [x] Rodar o roteiro de isolamento com dois usuários e anotar no README
 
-## Pilar 2: Perfis de acesso (Aula 15) · rótulo `perfis`
+## Pilar 2: Perfis de acesso · rótulo `perfis`
 
 - [ ] Campo `papel` no `Perfil` (administrador e operador)
 - [ ] Decidir o comportamento de usuário sem `Perfil`
@@ -25,16 +25,16 @@ Nenhuma tarefa é maior do que uma sessão de aula.
 - [ ] Restringir endpoints da API por papel (permissão customizada do DRF)
 - [ ] Mostrar ou esconder botões nos templates conforme o papel
 
-## Pilar 3: API REST (Aula 16) · rótulo `api`
+## Pilar 3: API REST · rótulo `api`
 
 - [x] Instalar o DRF e exigir autenticação (`IsAuthenticated`)
-- [x] API de `Sala` (primeira API da Aula 13)
-- [x] API de `Reserva`, `Recurso` e `Recorrencia` (tarefa de casa da Aula 13)
+- [x] API de `Sala` (primeira API)
+- [x] API de `Reserva`, `Recurso` e `Recorrencia`
 - [ ] Mostrar o nome da sala na reserva (`StringRelatedField` ou serializer aninhado)
 - [ ] Filtros na API (ex.: reservas por sala e por status)
 - [ ] Testes automatizados da API
 
-## Pilar 4: Dashboard (Aula 17) · rótulo `dashboard`
+## Pilar 4: Dashboard · rótulo `dashboard`
 
 - [ ] Tela de dashboard com métricas da organização
 - [ ] Salas mais reservadas (`values` + `annotate(Count)`)

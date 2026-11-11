@@ -1,6 +1,6 @@
 # Melhorias da P1
 
-Revisão do projeto entregue na P1 antes de começar a P2 (Aula 13).
+Revisão do projeto entregue na P1 antes de começar a P2.
 Cada item aponta um ponto frágil e o que deve ser feito.
 
 ## 1. Conflito de horário no Admin gera erro 500
@@ -41,7 +41,7 @@ Com muitas reservas, fica lento.
 cada sala. Já o `responsavel` da reserva é um texto livre, sem ligação com o usuário que fez a reserva.
 
 **Correção:** avaliar transformar `Recurso` em catálogo com `ManyToManyField` em `Sala`, e trocar
-`responsavel` por uma FK para `User` quando entrar o login (Aula 15).
+`responsavel` por uma FK para `User` quando entrar o login.
 
 ## 5. Configurações sensíveis no código e telas sem login
 
@@ -63,4 +63,4 @@ login em todas as telas (`@login_required`), o que já é necessário para a mul
 | 2. Regras espalhadas | Pendente |
 | 3. `tem_conflito()` em Python | Pendente |
 | 4. Recurso e responsável | Pendente |
-| 5. Configurações e login | Em andamento: login exigido em todas as telas (Aula 14); falta `.env` |
+| 5. Configurações e login | Em andamento: login exigido em todas as telas; falta `.env` |

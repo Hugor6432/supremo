@@ -11,7 +11,7 @@ Sistema para cadastrar salas e marcar reservas nelas. A P1 está descrita em
 
 ---
 
-## Aula 13: API REST com Django REST Framework
+## API REST com Django REST Framework
 
 A API fica em `/api/` e exige login (`IsAuthenticated`, autenticação por sessão do Django).
 Para entrar pela Browsable API, use o link "Log in" no canto da página (`/api-auth/login/`).
@@ -33,7 +33,7 @@ Validações da API (respondem `400` com a mensagem em JSON):
 
 ---
 
-## Aula 14: Multi-organização (coluna discriminadora)
+## Multi-organização (coluna discriminadora)
 
 Cada organização usa o mesmo sistema e o mesmo banco, mas enxerga **só os seus dados**.
 
@@ -55,7 +55,7 @@ Cada organização usa o mesmo sistema e o mesmo banco, mas enxerga **só os seu
 - Na API: `get_queryset()` filtra, `perform_create()` grava a organização do usuário, e
   `organizacao` não está nos `fields` do serializer.
 - **Usuário sem Perfil** (ex.: o superusuário do `createsuperuser`) recebe uma página **403**
-  em vez de erro 500. A decisão definitiva fica para a Aula 15.
+  em vez de erro 500. A decisão definitiva fica para a etapa de perfis de acesso.
 
 **Antes de migrar o seu banco:** faça uma cópia do `db.sqlite3` (backup) e depois rode
 `python manage.py migrate`. Os dados que já existiam vão para a "Organização padrão".
@@ -101,7 +101,7 @@ usuário `bruno`) e um superusuário sem Perfil. **25 de 25 verificações passa
 | 24 | API: Ana cria recurso na sua sala | Gravado na Alfa | ✅ |
 | 25 | API: superusuário sem Perfil | 403 | ✅ |
 
-### Revisão de views e templates (tarefa de casa da Aula 14)
+### Revisão de views e templates
 
 - `salas/views.py`: as 9 views exigem login e filtram pela organização.
 - `salas/forms.py`: os selects `sala` e `recorrencia` e a checagem de nome duplicado filtram pela organização.
