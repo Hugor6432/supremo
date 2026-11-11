@@ -1,5 +1,30 @@
 from rest_framework import serializers
+
+from core.utils import org_atual
 from .models import Sala, Recurso, Recorrencia, Reserva
+
+
+def _org_do_request(serializer):
+    request = serializer.context.get('request')
+    return org_atual(request) if request else None
+
+
+class FiltraPorOrganizacaoMixin:
+    """Os campos de relacionamento (sala, recorrencia) só aceitam IDs da
+    organização do usuário. É o equivalente na API aos selects filtrados
+    do formulário: um ID de outra organização vira erro 400.
+
+    O campo organizacao NÃO está em fields: ela é gravada pela view
+    (perform_create), nunca vem do JSON.
+    """
+    campos_da_org = {}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        org = _org_do_request(self)
+        for campo, model in self.campos_da_org.items():
+            if campo in self.fields:
+                self.fields[campo].queryset = model.objects.filter(organizacao=org)
 
 
 class SalaSerializer(serializers.ModelSerializer):
@@ -12,8 +37,19 @@ class SalaSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("A capacidade deve ser maior que zero.")
         return value
 
+    def validate_nome(self, value):
+        # Unicidade por organização (mesma regra do SalaForm.clean_nome)
+        duplicadas = Sala.objects.filter(organizacao=_org_do_request(self), nome__iexact=value)
+        if self.instance:
+            duplicadas = duplicadas.exclude(pk=self.instance.pk)
+        if duplicadas.exists():
+            raise serializers.ValidationError("Já existe uma sala com esse nome na sua organização.")
+        return value
 
-class RecursoSerializer(serializers.ModelSerializer):
+
+class RecursoSerializer(FiltraPorOrganizacaoMixin, serializers.ModelSerializer):
+    campos_da_org = {'sala': Sala}
+
     class Meta:
         model = Recurso
         fields = ['id', 'nome', 'descricao', 'sala']
@@ -39,7 +75,9 @@ class RecorrenciaSerializer(serializers.ModelSerializer):
         return data
 
 
-class ReservaSerializer(serializers.ModelSerializer):
+class ReservaSerializer(FiltraPorOrganizacaoMixin, serializers.ModelSerializer):
+    campos_da_org = {'sala': Sala, 'recorrencia': Recorrencia}
+
     class Meta:
         model = Reserva
         fields = ['id', 'sala', 'responsavel', 'data_inicio', 'data_fim',
