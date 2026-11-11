@@ -1,7 +1,9 @@
 from django.db import models
 
+from core.models import DaOrganizacao
 
-class Sala(models.Model):
+
+class Sala(DaOrganizacao):
     nome = models.CharField(max_length=100)
     capacidade = models.IntegerField()
     descricao = models.TextField(blank=True, null=True)
@@ -13,7 +15,7 @@ class Sala(models.Model):
         verbose_name_plural = "Salas"
 
 
-class Recurso(models.Model):
+class Recurso(DaOrganizacao):
     nome = models.CharField(max_length=100)
     descricao = models.TextField(blank=True, null=True)
     sala = models.ForeignKey(Sala, on_delete=models.CASCADE, related_name='recursos')
@@ -22,7 +24,7 @@ class Recurso(models.Model):
         return f"{self.nome} - {self.sala.nome}"
 
 
-class Recorrencia(models.Model):
+class Recorrencia(DaOrganizacao):
     FREQUENCIAS = [
         ('diaria', 'Diária'),
         ('semanal', 'Semanal'),
@@ -41,7 +43,7 @@ class Recorrencia(models.Model):
         verbose_name_plural = "Recorrências"
 
 
-class Reserva(models.Model):
+class Reserva(DaOrganizacao):
     STATUSOS = [
         ('pendente', 'Pendente'),
         ('confirmada', 'Confirmada'),
