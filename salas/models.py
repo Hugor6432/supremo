@@ -13,6 +13,13 @@ class Sala(DaOrganizacao):
     
     class Meta:
         verbose_name_plural = "Salas"
+        constraints = [
+            # Nome único dentro da organização (duas organizações podem ter "Sala 101")
+            models.UniqueConstraint(
+                fields=['organizacao', 'nome'],
+                name='sala_nome_unico_por_org',
+            ),
+        ]
 
 
 class Recurso(DaOrganizacao):
@@ -63,6 +70,7 @@ class Reserva(DaOrganizacao):
     
     def tem_conflito(self):
         conflitantes = Reserva.objects.filter(
+            organizacao_id=self.sala.organizacao_id,
             sala=self.sala,
             status__in=['confirmada', 'pendente']
         ).exclude(id=self.id)

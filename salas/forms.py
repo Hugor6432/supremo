@@ -1,16 +1,33 @@
 from django import forms
-from .models import Sala, Recurso, Reserva
+from .models import Sala, Recorrencia, Reserva
 
 
 class SalaForm(forms.ModelForm):
     class Meta:
         model = Sala
+        # organizacao fica FORA do form: ela vem do usuário logado (views)
         fields = ['nome', 'capacidade', 'descricao']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome da sala'}),
             'capacidade': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Capacidade'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descrição'}),
         }
+
+    def __init__(self, *args, org=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.org = org
+
+    # Unicidade por organização: como organizacao não está no form, o Django
+    # não valida a UniqueConstraint aqui. Tratamos o duplicado para não
+    # estourar IntegrityError.
+    def clean_nome(self):
+        nome = self.cleaned_data['nome']
+        duplicadas = Sala.objects.filter(organizacao=self.org, nome__iexact=nome)
+        if self.instance.pk:
+            duplicadas = duplicadas.exclude(pk=self.instance.pk)
+        if duplicadas.exists():
+            raise forms.ValidationError("Já existe uma sala com esse nome na sua organização.")
+        return nome
 
 
 class ReservaForm(forms.ModelForm):
@@ -26,6 +43,12 @@ class ReservaForm(forms.ModelForm):
             'recorrencia': forms.Select(attrs={'class': 'form-control'}),
             'status': forms.Select(attrs={'class': 'form-control'}),
         }
+
+    def __init__(self, *args, org=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Selects também vazam: só mostram opções da organização do usuário
+        self.fields['sala'].queryset = Sala.objects.filter(organizacao=org).order_by('nome')
+        self.fields['recorrencia'].queryset = Recorrencia.objects.filter(organizacao=org)
 
     # Feature 2 - Validação customizada
     def clean(self):
