@@ -75,6 +75,11 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
+# Login (Aula 14): sem login não há organização
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'lista_salas'
+LOGOUT_REDIRECT_URL = 'login'
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 from django.contrib.messages import constants as messages
