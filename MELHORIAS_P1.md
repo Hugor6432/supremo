@@ -63,4 +63,4 @@ login em todas as telas (`@login_required`), o que já é necessário para a mul
 | 2. Regras espalhadas | Pendente |
 | 3. `tem_conflito()` em Python | Pendente |
 | 4. Recurso e responsável | Pendente |
-| 5. Configurações e login | Em andamento: login exigido nas telas na Aula 14 |
+| 5. Configurações e login | Em andamento: login exigido em todas as telas (Aula 14); falta `.env` |

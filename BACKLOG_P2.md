@@ -7,15 +7,15 @@ Nenhuma tarefa é maior do que uma sessão de aula.
 
 ## Pilar 1: Multi-organização (Aula 14) · rótulo `multi-organizacao`
 
-- [ ] Criar app `core` com o model `Organizacao`
-- [ ] Criar a base abstrata `DaOrganizacao` e herdar em `Sala`, `Recurso`, `Recorrencia` e `Reserva`
-- [ ] Migração em 3 etapas (FK nula → organização padrão → FK obrigatória)
-- [ ] Model `Perfil` ligando `User` à `Organizacao`, registrado no Admin
-- [ ] Exigir login e filtrar todas as views por `org_atual(request)`
-- [ ] Filtrar os selects do `ReservaForm` (sala e recorrência) pela organização
-- [ ] Nome de sala único por organização (`UniqueConstraint`) com tratamento no `clean()` do form
-- [ ] Filtrar a API por organização (`get_queryset` e `perform_create`)
-- [ ] Rodar o roteiro de isolamento com dois usuários e anotar no README
+- [x] Criar app `core` com o model `Organizacao`
+- [x] Criar a base abstrata `DaOrganizacao` e herdar em `Sala`, `Recurso`, `Recorrencia` e `Reserva`
+- [x] Migração em 3 etapas (FK nula → organização padrão → FK obrigatória)
+- [x] Model `Perfil` ligando `User` à `Organizacao`, registrado no Admin
+- [x] Exigir login e filtrar todas as views por `org_atual(request)`
+- [x] Filtrar os selects do `ReservaForm` (sala e recorrência) pela organização
+- [x] Nome de sala único por organização (`UniqueConstraint`) com tratamento no `clean()` do form
+- [x] Filtrar a API por organização (`get_queryset` e `perform_create`)
+- [x] Rodar o roteiro de isolamento com dois usuários e anotar no README
 
 ## Pilar 2: Perfis de acesso (Aula 15) · rótulo `perfis`
 

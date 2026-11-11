@@ -26,6 +26,11 @@ Password: admin123
 
 Pressione: Ctrl + C
 
+## P2 (Aulas 13 e 14)
+
+Depois de atualizar o projeto, rode `pip install -r requirements.txt` e `python manage.py migrate`
+(faça uma cópia do `db.sqlite3` antes). Detalhes em [README.md](README.md).
+
 ## Funcionalidades P1
 
 ✅ CRUD Salas
