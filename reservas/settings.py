@@ -75,7 +75,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-# Login (Aula 14): sem login não há organização
+# Login: sem login não há organização
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'lista_salas'
 LOGOUT_REDIRECT_URL = 'login'

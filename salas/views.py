@@ -7,7 +7,7 @@ from core.utils import org_atual
 from .models import Sala, Recurso, Reserva
 from .forms import ReservaForm, SalaForm
 
-# Regra de ouro (Aula 14): toda view exige login, toda consulta parte de
+# Regra de ouro: toda view exige login, toda consulta parte de
 # filter(organizacao=org) e todo get_object_or_404 recebe organizacao=org.
 # Registro de outra organização responde 404, como se não existisse.
 

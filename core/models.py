@@ -31,7 +31,7 @@ class DaOrganizacao(models.Model):
 
 
 class Perfil(models.Model):
-    """Liga o usuário do Django à organização dele. O campo papel entra na Aula 15."""
+    """Liga o usuário do Django à organização dele."""
     usuario = models.OneToOneField(User, on_delete=models.CASCADE)
     organizacao = models.ForeignKey(Organizacao, on_delete=models.PROTECT)
 

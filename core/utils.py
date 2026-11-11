@@ -9,8 +9,6 @@ def org_atual(request):
 
     Usuário sem Perfil (ex.: superusuário criado com createsuperuser)
     recebe 403 em vez de quebrar com RelatedObjectDoesNotExist.
-    O comportamento definitivo (criar perfil, redirecionar ou bloquear)
-    será decidido na Aula 15.
     """
     perfil = getattr(request.user, 'perfil', None)
     if perfil is None:
