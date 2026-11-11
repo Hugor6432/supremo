@@ -10,13 +10,7 @@ def _org_do_request(serializer):
 
 
 class FiltraPorOrganizacaoMixin:
-    """Os campos de relacionamento (sala, recorrencia) só aceitam IDs da
-    organização do usuário. É o equivalente na API aos selects filtrados
-    do formulário: um ID de outra organização vira erro 400.
-
-    O campo organizacao NÃO está em fields: ela é gravada pela view
-    (perform_create), nunca vem do JSON.
-    """
+    # Sala e recorrência só aceitam registros da organização do usuário
     campos_da_org = {}
 
     def __init__(self, *args, **kwargs):
@@ -38,7 +32,7 @@ class SalaSerializer(serializers.ModelSerializer):
         return value
 
     def validate_nome(self, value):
-        # Unicidade por organização (mesma regra do SalaForm.clean_nome)
+        # Não deixa repetir o nome da sala na mesma organização
         duplicadas = Sala.objects.filter(organizacao=_org_do_request(self), nome__iexact=value)
         if self.instance:
             duplicadas = duplicadas.exclude(pk=self.instance.pk)
@@ -84,21 +78,20 @@ class ReservaSerializer(FiltraPorOrganizacaoMixin, serializers.ModelSerializer):
                   'descricao', 'recorrencia', 'status']
 
     def validate(self, data):
-        # Mesmas regras do ReservaForm e das views da P1, agora também na API.
-        # Em PATCH, os campos que não vieram são lidos da reserva existente.
+        # No PATCH, usa os valores atuais da reserva para os campos que não vieram
         def valor(campo):
             return data.get(campo, getattr(self.instance, campo, None))
 
         data_inicio = valor('data_inicio')
         data_fim = valor('data_fim')
 
-        # Regra da Feature 2: término depois do início
+        # Término depois do início
         if data_inicio and data_fim and data_fim <= data_inicio:
             raise serializers.ValidationError(
                 "O horário de término da reserva deve ser depois do horário de início."
             )
 
-        # Conflito de horário, reaproveitando Reserva.tem_conflito()
+        # Conflito de horário
         reserva = Reserva(
             id=getattr(self.instance, 'id', None),
             sala=valor('sala'),

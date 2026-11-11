@@ -41,7 +41,7 @@ Com muitas reservas, fica lento.
 cada sala. Já o `responsavel` da reserva é um texto livre, sem ligação com o usuário que fez a reserva.
 
 **Correção:** avaliar transformar `Recurso` em catálogo com `ManyToManyField` em `Sala`, e trocar
-`responsavel` por uma FK para `User` quando entrar o login.
+`responsavel` por uma FK para `User` quando entrarem os perfis de usuário.
 
 ## 5. Configurações sensíveis no código e telas sem login
 

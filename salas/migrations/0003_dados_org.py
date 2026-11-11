@@ -2,11 +2,7 @@ from django.db import migrations
 
 
 def org_padrao(apps, schema_editor):
-    """Etapa 2: os registros da P1 ficam na "Organização padrão".
-
-    Usa apps.get_model (e não import direto) para enxergar os models
-    como eles eram neste ponto das migrações.
-    """
+    # Registros já existentes vão para a "Organização padrão"
     Organizacao = apps.get_model('core', 'Organizacao')
     org, _ = Organizacao.objects.get_or_create(nome='Organização padrão')
 

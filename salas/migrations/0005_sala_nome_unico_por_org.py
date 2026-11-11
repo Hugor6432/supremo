@@ -2,8 +2,7 @@ from django.db import migrations, models
 
 
 def renomeia_duplicadas(apps, schema_editor):
-    """Se já houver salas com o mesmo nome na mesma organização (dados da P1),
-    acrescenta " (2)", " (3)"... para a restrição de unicidade não falhar."""
+    # Renomeia salas repetidas na mesma organização antes de criar a restrição
     Sala = apps.get_model('salas', 'Sala')
     vistos = set()
     for sala in Sala.objects.order_by('id'):

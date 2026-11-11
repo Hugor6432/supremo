@@ -14,7 +14,6 @@ class Sala(DaOrganizacao):
     class Meta:
         verbose_name_plural = "Salas"
         constraints = [
-            # Nome único dentro da organização (duas organizações podem ter "Sala 101")
             models.UniqueConstraint(
                 fields=['organizacao', 'nome'],
                 name='sala_nome_unico_por_org',

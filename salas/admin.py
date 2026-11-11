@@ -51,7 +51,7 @@ class UsuarioForm(forms.ModelForm):
             user.save()
         return user
 
-# Perfil (organização do usuário) editado na mesma tela do usuário
+# Organização do usuário na tela do usuário
 class PerfilInline(admin.StackedInline):
     model = Perfil
     can_delete = False
@@ -108,7 +108,7 @@ class SalaAdmin(admin.ModelAdmin):
     total_recursos.short_description = "🔧 Recursos"
 
     def save_formset(self, request, form, formset, change):
-        # Recursos cadastrados aqui ficam na mesma organização da sala
+        # Recursos ficam na organização da sala
         recursos = formset.save(commit=False)
         for recurso in recursos:
             recurso.organizacao = form.instance.organizacao
@@ -124,7 +124,6 @@ class RecursoAdmin(admin.ModelAdmin):
     exclude = ('organizacao',)
 
     def save_model(self, request, obj, form, change):
-        # A organização do recurso é sempre a da sala
         obj.organizacao = obj.sala.organizacao
         super().save_model(request, obj, form, change)
 
@@ -149,7 +148,6 @@ class ReservaAdmin(admin.ModelAdmin):
     )
     
     def save_model(self, request, obj, form, change):
-        # A organização da reserva é sempre a da sala
         obj.organizacao = obj.sala.organizacao
         if obj.tem_conflito():
             raise ValueError('Existe conflito com outra reserva neste horário!')

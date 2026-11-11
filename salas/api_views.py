@@ -8,12 +8,7 @@ from .serializers import (
 
 
 class DaOrganizacaoMixin:
-    """Isolamento por organização na API (mesma regra de ouro das telas).
-
-    - get_queryset: lista/detalha só registros da organização do usuário
-      (ID de outra organização responde 404).
-    - perform_create: a organização vem do usuário logado, nunca do JSON.
-    """
+    # Mostra e grava só dados da organização do usuário
     model = None
 
     def get_queryset(self):

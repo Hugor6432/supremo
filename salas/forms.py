@@ -5,7 +5,6 @@ from .models import Sala, Recorrencia, Reserva
 class SalaForm(forms.ModelForm):
     class Meta:
         model = Sala
-        # organizacao fica FORA do form: ela vem do usuário logado (views)
         fields = ['nome', 'capacidade', 'descricao']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome da sala'}),
@@ -17,9 +16,7 @@ class SalaForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.org = org
 
-    # Unicidade por organização: como organizacao não está no form, o Django
-    # não valida a UniqueConstraint aqui. Tratamos o duplicado para não
-    # estourar IntegrityError.
+    # Não deixa repetir o nome da sala na mesma organização
     def clean_nome(self):
         nome = self.cleaned_data['nome']
         duplicadas = Sala.objects.filter(organizacao=self.org, nome__iexact=nome)
@@ -46,7 +43,7 @@ class ReservaForm(forms.ModelForm):
 
     def __init__(self, *args, org=None, **kwargs):
         super().__init__(*args, **kwargs)
-        # Selects também vazam: só mostram opções da organização do usuário
+        # Mostra só salas e recorrências da organização do usuário
         self.fields['sala'].queryset = Sala.objects.filter(organizacao=org).order_by('nome')
         self.fields['recorrencia'].queryset = Recorrencia.objects.filter(organizacao=org)
 

@@ -75,7 +75,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-# Login: sem login não há organização
+# Login
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'lista_salas'
 LOGOUT_REDIRECT_URL = 'login'
@@ -92,7 +92,7 @@ MESSAGE_TAGS = {
 }
 
 
-# Django REST Framework: a API exige login (autenticação por sessão do Django)
+# API só para usuários logados
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',

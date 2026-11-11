@@ -7,10 +7,6 @@ from core.utils import org_atual
 from .models import Sala, Recurso, Reserva
 from .forms import ReservaForm, SalaForm
 
-# Regra de ouro: toda view exige login, toda consulta parte de
-# filter(organizacao=org) e todo get_object_or_404 recebe organizacao=org.
-# Registro de outra organização responde 404, como se não existisse.
-
 
 # ===== VIEWS DE SALAS =====
 
@@ -41,7 +37,6 @@ def lista_salas(request):
 
     contexto = {
         'salas': salas,
-        # Só os recursos da organização aparecem no select do filtro
         'recursos': Recurso.objects.filter(organizacao=org)
                                    .values_list('nome', flat=True).distinct().order_by('nome'),
         'opcoes_capacidade': [5, 10, 20, 50, 100],
@@ -58,7 +53,7 @@ def criar_sala(request):
         form = SalaForm(request.POST, org=org)
         if form.is_valid():
             sala = form.save(commit=False)
-            sala.organizacao = org  # vem do usuário, nunca do formulário
+            sala.organizacao = org
             sala.save()
             messages.success(request, 'Sala criada com sucesso! Adicione recursos no Admin.')
             return redirect('lista_salas')
@@ -109,7 +104,7 @@ def criar_reserva(request):
         form = ReservaForm(request.POST, org=org)
         if form.is_valid():
             reserva = form.save(commit=False)
-            reserva.organizacao = org  # vem do usuário, nunca do formulário
+            reserva.organizacao = org
             if reserva.tem_conflito():
                 messages.error(request, 'Conflito! Já existe uma reserva neste horário para esta sala.')
                 return render(request, 'salas/criar_reserva.html', {'form': form})
