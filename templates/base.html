@@ -428,7 +428,7 @@
                         <div class="chip-usuario">
                             <span class="avatar">{% include "icones/usuario.html" %}</span>
                             <span>
-                                {{ user.username }}{% if papel %}<span class="papel">{% if papel == 'administrador' %}Administrador{% elif papel == 'operador' %}Operador{% else %}Usuário{% endif %}</span>{% endif %}
+                                {{ user.username }}{% if papel %}<span class="papel">{% if papel == 'administrador' %}Administrador{% elif papel == 'operador' %}Funcionário{% else %}Usuário{% endif %}</span>{% endif %}
                                 {% if user.perfil %}<small>{{ user.perfil.organizacao }}</small>{% endif %}
                             </span>
                         </div>
