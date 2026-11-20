@@ -3,7 +3,9 @@
 {% block conteudo %}
 <div class="row mb-4">
     <div class="col-md-8"><h1>📍 Salas Disponíveis</h1></div>
-    <div class="col-md-4 text-end"><a href="{% url 'criar_sala' %}" class="btn btn-primary btn-lg">+ Nova Sala</a></div>
+    <div class="col-md-4 text-end">
+        {% if eh_operador %}<a href="{% url 'criar_sala' %}" class="btn btn-primary btn-lg">+ Nova Sala</a>{% endif %}
+    </div>
 </div>
 
 <!-- Feature 1: Busca e Filtro -->
@@ -78,6 +80,7 @@
                     {% endif %}
                 </div>
 
+                {% if eh_operador %}
                 <hr>
 
                 <!-- Ações -->
@@ -85,6 +88,7 @@
                     <a href="{% url 'editar_sala' sala.id %}" class="btn btn-sm btn-warning">✏️ Editar</a>
                     <a href="{% url 'deletar_sala' sala.id %}" class="btn btn-sm btn-danger">🗑️ Deletar</a>
                 </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -99,8 +103,12 @@
         {% else %}
         <div class="alert alert-info text-center py-5">
             <h5>📭 Nenhuma sala cadastrada ainda</h5>
+            {% if eh_operador %}
             <p>Crie uma sala para começar</p>
             <a href="{% url 'criar_sala' %}" class="btn btn-primary btn-lg">+ Criar Nova Sala</a>
+            {% else %}
+            <p>Peça a um operador para cadastrar as salas.</p>
+            {% endif %}
         </div>
         {% endif %}
     </div>

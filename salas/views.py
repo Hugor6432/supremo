@@ -51,6 +51,7 @@ def lista_salas(request):
 @login_required
 def criar_sala(request):
     org = org_atual(request)
+    exige_operador(request)
     if request.method == 'POST':
         form = SalaForm(request.POST, org=org)
         if form.is_valid():
@@ -67,6 +68,7 @@ def criar_sala(request):
 @login_required
 def editar_sala(request, id):
     org = org_atual(request)
+    exige_operador(request)
     sala = get_object_or_404(Sala, id=id, organizacao=org)
     if request.method == 'POST':
         form = SalaForm(request.POST, instance=sala, org=org)
@@ -82,6 +84,7 @@ def editar_sala(request, id):
 @login_required
 def deletar_sala(request, id):
     org = org_atual(request)
+    exige_operador(request)
     sala = get_object_or_404(Sala, id=id, organizacao=org)
     if request.method == 'POST':
         sala.delete()
