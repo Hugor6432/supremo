@@ -293,3 +293,86 @@ class MigracaoPapelTest(TransactionTestCase):
         executor.loader.build_graph()
         executor.migrate(executor.loader.graph.leaf_nodes())
         self.assertEqual(Perfil.objects.get(usuario__username='antigo').papel, 'administrador')
+
+
+# ===== ADMIN: TIPO DE USUÁRIO =====
+
+class AdminTipoUsuarioTest(TestCase):
+    URL_ADD = '/admin/auth/user/add/'
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.org = Organizacao.objects.create(nome="Org Admin")
+        cls.super = User.objects.create_superuser('chefe', password='senha-teste-123')
+
+    def setUp(self):
+        self.client.force_login(self.super)
+
+    def cria(self, nome, tipo, org=None):
+        dados = {
+            'username': nome, 'password1': 'Senha-Forte-987', 'password2': 'Senha-Forte-987',
+            'tipo_usuario': tipo, 'organizacao': org.id if org else '',
+        }
+        return self.client.post(self.URL_ADD, dados)
+
+    def confere(self, nome, papel, staff):
+        user = User.objects.get(username=nome)
+        self.assertEqual(user.is_staff, staff)
+        self.assertEqual(user.is_superuser, staff)
+        self.assertTrue(user.check_password('Senha-Forte-987'))  # senha com criptografia
+        self.assertNotEqual(user.password, 'Senha-Forte-987')
+        if papel:
+            self.assertEqual(user.perfil.papel, papel)
+            self.assertEqual(user.perfil.organizacao, self.org)
+        # Acesso ao Admin só para Administrador
+        self.client.force_login(user)
+        resp = self.client.get('/admin/')
+        self.assertEqual(resp.status_code, 200 if staff else 302)
+        self.client.force_login(self.super)
+
+    def test_tela_de_adicionar_tem_tudo_numa_tela(self):
+        resp = self.client.get(self.URL_ADD)
+        for campo in ['username', 'password1', 'password2', 'tipo_usuario', 'organizacao']:
+            self.assertContains(resp, f'name="{campo}"')
+        self.assertContains(resp, 'Funcionário')
+
+    def test_cria_usuario(self):
+        self.assertEqual(self.cria('u1', 'usuario', self.org).status_code, 302)
+        self.confere('u1', 'usuario', staff=False)
+
+    def test_cria_funcionario(self):
+        self.assertEqual(self.cria('f1', 'operador', self.org).status_code, 302)
+        self.confere('f1', 'operador', staff=False)
+
+    def test_cria_administrador_com_e_sem_organizacao(self):
+        self.assertEqual(self.cria('a1', 'administrador', self.org).status_code, 302)
+        self.confere('a1', 'administrador', staff=True)
+        self.assertEqual(self.cria('a2', 'administrador').status_code, 302)
+        self.confere('a2', None, staff=True)
+        self.assertFalse(Perfil.objects.filter(usuario__username='a2').exists())
+
+    def test_organizacao_obrigatoria_para_usuario_e_funcionario(self):
+        for nome, tipo in [('sem1', 'usuario'), ('sem2', 'operador')]:
+            resp = self.cria(nome, tipo)
+            self.assertEqual(resp.status_code, 200)
+            self.assertContains(resp, "Escolha a organização para Usuário e Funcionário.")
+            self.assertFalse(User.objects.filter(username=nome).exists())
+
+    def test_edicao_marca_o_tipo_e_corrige_admin_sem_superusuario(self):
+        user = User.objects.create_user('antigo', password='x')
+        Perfil.objects.create(usuario=user, organizacao=self.org, papel=Perfil.ADMINISTRADOR)
+        url = f'/admin/auth/user/{user.id}/change/'
+        resp = self.client.get(url)
+        self.assertEqual(resp.context['adminform'].form['tipo_usuario'].value(), 'operador')
+        dados = {
+            'username': 'antigo', 'email': '', 'first_name': '', 'last_name': '',
+            'is_active': 'on', 'tipo_usuario': resp.context['adminform'].form['tipo_usuario'].value(),
+            'organizacao': self.org.id,
+        }
+        self.assertEqual(self.client.post(url, dados).status_code, 302)
+        user.refresh_from_db()
+        self.assertEqual(user.perfil.papel, 'operador')
+        self.assertFalse(user.is_staff)
+        # Superusuário aparece como Administrador
+        resp = self.client.get(f'/admin/auth/user/{self.super.id}/change/')
+        self.assertEqual(resp.context['adminform'].form['tipo_usuario'].value(), 'administrador')

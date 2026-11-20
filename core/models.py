@@ -31,7 +31,7 @@ class Perfil(models.Model):
     USUARIO = 'usuario'
     PAPEIS = [
         (ADMINISTRADOR, 'Administrador'),
-        (OPERADOR, 'Operador'),
+        (OPERADOR, 'Funcionário'),
         (USUARIO, 'Usuário'),
     ]
 
