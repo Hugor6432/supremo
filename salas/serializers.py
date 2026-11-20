@@ -24,7 +24,7 @@ class FiltraPorOrganizacaoMixin:
 class SalaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sala
-        fields = ['id', 'nome', 'capacidade', 'descricao']
+        fields = ['id', 'nome', 'capacidade', 'descricao', 'exige_aprovacao']
 
     def validate_capacidade(self, value):
         if value <= 0:
@@ -75,7 +75,9 @@ class ReservaSerializer(FiltraPorOrganizacaoMixin, serializers.ModelSerializer):
     class Meta:
         model = Reserva
         fields = ['id', 'sala', 'responsavel', 'data_inicio', 'data_fim',
-                  'descricao', 'recorrencia', 'status']
+                  'descricao', 'recorrencia', 'status', 'criado_por']
+        # Status muda pelas ações cancelar/aprovar/recusar
+        read_only_fields = ['status', 'criado_por']
 
     def validate(self, data):
         # No PATCH, usa os valores atuais da reserva para os campos que não vieram

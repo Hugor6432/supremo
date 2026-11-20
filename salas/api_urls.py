@@ -13,4 +13,7 @@ urlpatterns = [
 
     path('reservas/', api_views.ReservaListCreate.as_view(), name='api_reservas'),
     path('reservas/<int:pk>/', api_views.ReservaDetail.as_view(), name='api_reserva_detalhe'),
+    path('reservas/<int:pk>/cancelar/', api_views.ReservaCancelar.as_view(), name='api_reserva_cancelar'),
+    path('reservas/<int:pk>/aprovar/', api_views.ReservaAprovar.as_view(), name='api_reserva_aprovar'),
+    path('reservas/<int:pk>/recusar/', api_views.ReservaRecusar.as_view(), name='api_reserva_recusar'),
 ]
