@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from core.models import Organizacao, Perfil
+from core.models import Organizacao, Perfil, RegistroAtividade
 from .models import Recurso, Sala, Reserva
 
 
@@ -618,3 +618,212 @@ class RecursosTest(Base):
             self.assertNotContains(resp, 'Admin → Salas')
             self.assertContains(resp, 'id="adicionar-recurso"')
             self.assertContains(resp, 'recursos-__prefix__-nome')
+
+
+# ===== EXCLUSÃO REGISTRADA =====
+
+class ExclusaoSuaveTest(Base):
+    def test_funcionario_exclui_reserva_pelo_site(self):
+        reserva = self.reserva(self.usuario, 48)
+        self.client.force_login(self.operador)
+        self.assertEqual(self.client.post(reverse('deletar_reserva', args=[reserva.id])).status_code, 302)
+        # Some do site e da API
+        self.assertFalse(Reserva.objects.filter(id=reserva.id).exists())
+        self.assertEqual(self.client.get(reverse('detalhes_reserva', args=[reserva.id])).status_code, 404)
+        self.assertNotContains(self.client.get(reverse('lista_reservas')), reverse('detalhes_reserva', args=[reserva.id]))
+        api = APIClient()
+        api.force_authenticate(self.operador)
+        self.assertEqual(api.get('/api/reservas/').data, [])
+        self.assertEqual(api.get(f'/api/reservas/{reserva.id}/').status_code, 404)
+        # Continua no banco, com quem excluiu
+        guardada = Reserva.todos.get(id=reserva.id)
+        self.assertEqual(guardada.excluida_por, self.operador)
+        self.assertIsNotNone(guardada.excluida_em)
+
+    def test_funcionario_exclui_sala_pelo_site(self):
+        Recurso.objects.create(organizacao=self.org_a, sala=self.sala, nome='Projetor')
+        reserva = self.reserva(self.usuario, 48)
+        self.client.force_login(self.operador)
+        self.assertEqual(self.client.post(reverse('deletar_sala', args=[self.sala.id])).status_code, 302)
+        guardada = Sala.todos.get(id=self.sala.id)
+        self.assertEqual(guardada.excluida_por, self.operador)
+        self.assertTrue(Reserva.todos.filter(id=reserva.id).exists())
+        # Some da lista, do filtro de recursos, do formulário de reserva e da API
+        lista = self.client.get(reverse('lista_salas'))
+        self.assertNotIn(self.sala, list(lista.context['salas']))
+        self.assertNotIn('Projetor', list(lista.context['recursos']))
+        form = self.client.get(reverse('criar_reserva')).context['form']
+        self.assertNotIn(self.sala, form.fields['sala'].queryset)
+        self.assertEqual(self.client.get(reverse('editar_sala', args=[self.sala.id])).status_code, 404)
+        # As reservas dessa sala também somem
+        self.assertFalse(Reserva.objects.filter(id=reserva.id).exists())
+        api = APIClient()
+        api.force_authenticate(self.operador)
+        self.assertNotIn(self.sala.id, [s['id'] for s in api.get('/api/salas/').data])
+        dados = {'sala': self.sala.id, 'data_inicio': (timezone.now() + timedelta(hours=60)).isoformat(),
+                 'data_fim': (timezone.now() + timedelta(hours=61)).isoformat()}
+        self.assertEqual(api.post('/api/reservas/', dados).status_code, 400)
+
+    def test_horario_de_reserva_excluida_fica_livre(self):
+        reserva = self.reserva(self.outro, 48)
+        self.client.force_login(self.operador)
+        self.client.post(reverse('deletar_reserva', args=[reserva.id]))
+        self.client.force_login(self.usuario)
+        dados = {'sala': self.sala.id, 'data_inicio': self.local(reserva.data_inicio),
+                 'data_fim': self.local(reserva.data_fim), 'descricao': '', 'recorrencia': ''}
+        self.assertEqual(self.client.post(reverse('criar_reserva'), dados).status_code, 302)
+
+    def test_nome_de_sala_excluida_pode_ser_usado_de_novo(self):
+        self.client.force_login(self.operador)
+        self.client.post(reverse('deletar_sala', args=[self.sala.id]))
+        dados = {'nome': self.sala.nome, 'capacidade': 8, 'descricao': ''} | RecursosTest.gestao(0)
+        self.assertEqual(self.client.post(reverse('criar_sala'), dados).status_code, 302)
+        self.assertEqual(Sala.todos.filter(nome=self.sala.nome, organizacao=self.org_a).count(), 2)
+
+    def test_delete_da_api_tambem_so_marca(self):
+        reserva = self.reserva(self.usuario, 48)
+        api = APIClient()
+        api.force_authenticate(self.operador)
+        self.assertEqual(api.delete(f'/api/reservas/{reserva.id}/').status_code, 204)
+        self.assertEqual(Reserva.todos.get(id=reserva.id).excluida_por, self.operador)
+        self.assertEqual(api.delete(f'/api/salas/{self.sala_aprov.id}/').status_code, 204)
+        self.assertEqual(Sala.todos.get(id=self.sala_aprov.id).excluida_por, self.operador)
+
+
+class AdminExclusaoTest(Base):
+    def setUp(self):
+        self.chefe = User.objects.create_superuser('chefe', password='x')
+
+    def test_admin_mostra_excluidas_e_restaura(self):
+        reserva = self.reserva(self.usuario, 48)
+        reserva.excluir(self.operador)
+        self.sala_aprov.excluir(self.operador)
+        self.client.force_login(self.chefe)
+        resp = self.client.get('/admin/salas/reserva/', {'excluida': 'sim'})
+        self.assertEqual(resp.context['cl'].result_count, 1)
+        self.assertContains(resp, 'Excluída em')
+        self.assertContains(resp, 'Excluída por')
+        self.assertEqual(self.client.get('/admin/salas/reserva/', {'excluida': 'nao'}).context['cl'].result_count, 0)
+        self.client.post('/admin/salas/reserva/', {'action': 'restaurar_selecionadas', '_selected_action': [reserva.id]})
+        self.client.post('/admin/salas/sala/', {'action': 'restaurar_selecionadas', '_selected_action': [self.sala_aprov.id]})
+        reserva.refresh_from_db()
+        self.assertIsNone(reserva.excluida_em)
+        self.assertIsNone(reserva.excluida_por)
+        self.assertTrue(Reserva.objects.filter(id=reserva.id).exists())
+        self.assertTrue(Sala.objects.filter(id=self.sala_aprov.id).exists())
+
+    def test_restaurar_nao_cria_conflito(self):
+        antiga = self.reserva(self.usuario, 48)
+        antiga.excluir(self.operador)
+        Reserva.objects.create(organizacao=self.org_a, sala=self.sala, responsavel='x', criado_por=self.outro,
+                               data_inicio=antiga.data_inicio, data_fim=antiga.data_fim, status='confirmada')
+        self.client.force_login(self.chefe)
+        self.client.post('/admin/salas/reserva/', {'action': 'restaurar_selecionadas', '_selected_action': [antiga.id]})
+        self.assertIsNotNone(Reserva.todos.get(id=antiga.id).excluida_em)
+
+    def test_admin_apaga_de_vez(self):
+        reserva = self.reserva(self.usuario, 48)
+        reserva.excluir(self.operador)
+        self.client.force_login(self.chefe)
+        self.client.post(f'/admin/salas/reserva/{reserva.id}/delete/', {'post': 'yes'})
+        self.assertFalse(Reserva.todos.filter(id=reserva.id).exists())
+
+
+# ===== REGISTRO DE ATIVIDADES =====
+
+class RegistroAtividadeTest(Base):
+    def acoes(self, tipo):
+        return list(RegistroAtividade.objects.filter(tipo_objeto=tipo).order_by('id').values_list('acao', flat=True))
+
+    def test_cada_acao_do_site_gera_registro(self):
+        # Reservas: criar, editar, cancelar
+        self.client.force_login(self.usuario)
+        self.client.post(reverse('criar_reserva'), self.dados_form(self.sala, 48))
+        reserva = Reserva.objects.get()
+        self.client.post(reverse('editar_reserva', args=[reserva.id]), self.dados_form(self.sala, 50))
+        self.client.post(reverse('cancelar_reserva', args=[reserva.id]))
+        # Aprovar, recusar e excluir
+        self.client.post(reverse('criar_reserva'), self.dados_form(self.sala_aprov, 72))
+        self.client.post(reverse('criar_reserva'), self.dados_form(self.sala_aprov, 96))
+        pendente1, pendente2 = Reserva.objects.filter(status='pendente').order_by('data_inicio')
+        self.client.force_login(self.operador)
+        self.client.post(reverse('aprovar_reserva', args=[pendente1.id]))
+        self.client.post(reverse('recusar_reserva', args=[pendente2.id]))
+        self.client.post(reverse('deletar_reserva', args=[pendente1.id]))
+        self.assertEqual(self.acoes('reserva'),
+                         ['criou', 'editou', 'cancelou', 'criou', 'criou', 'aprovou', 'recusou', 'excluiu'])
+        # Salas e recursos
+        dados = {'nome': 'Lab', 'capacidade': 10, 'descricao': ''} | RecursosTest.gestao(2) | {
+            'recursos-0-nome': 'Projetor', 'recursos-0-descricao': '',
+            'recursos-1-nome': 'TV', 'recursos-1-descricao': '',
+        }
+        self.client.post(reverse('criar_sala'), dados)
+        lab = Sala.objects.get(nome='Lab')
+        projetor, tv = lab.recursos.order_by('id')
+        dados = {'nome': 'Lab 2', 'capacidade': 10, 'descricao': ''} | RecursosTest.gestao(2, 2) | {
+            'recursos-0-id': projetor.id, 'recursos-0-nome': 'Projetor 4K', 'recursos-0-descricao': '',
+            'recursos-1-id': tv.id, 'recursos-1-nome': 'TV', 'recursos-1-descricao': '', 'recursos-1-DELETE': 'on',
+        }
+        self.client.post(reverse('editar_sala', args=[lab.id]), dados)
+        self.client.post(reverse('deletar_sala', args=[lab.id]))
+        self.assertEqual(self.acoes('sala'), ['criou', 'editou', 'excluiu'])
+        self.assertEqual(self.acoes('recurso'), ['adicionou', 'adicionou', 'editou', 'removeu'])
+        # Todos têm usuário, organização e descrição legível
+        for registro in RegistroAtividade.objects.all():
+            self.assertIsNotNone(registro.usuario)
+            self.assertEqual(registro.organizacao, self.org_a)
+            self.assertTrue(registro.descricao.startswith(registro.usuario.username + ' '))
+        quando = timezone.localtime(Reserva.todos.get(id=reserva.id).data_inicio).strftime('%d/%m/%Y %H:%M')
+        cancelou = RegistroAtividade.objects.get(acao='cancelou')
+        self.assertEqual(cancelou.descricao, f'usuario cancelou a reserva da Sala 1 de {quando}')
+        self.assertEqual(cancelou.objeto_id, reserva.id)
+        self.assertEqual(RegistroAtividade.objects.get(acao='removeu').descricao, 'operador removeu o recurso TV na sala Lab 2')
+
+    def test_api_gera_registro(self):
+        api = APIClient()
+        api.force_authenticate(self.usuario)
+        inicio = timezone.now() + timedelta(hours=48)
+        resp = api.post('/api/reservas/', {'sala': self.sala.id, 'data_inicio': inicio.isoformat(),
+                                            'data_fim': (inicio + timedelta(hours=1)).isoformat()})
+        id_ = resp.data['id']
+        api.patch(f'/api/reservas/{id_}/', {'descricao': 'Nova'})
+        api.post(f'/api/reservas/{id_}/cancelar/')
+        api.force_authenticate(self.operador)
+        api.delete(f'/api/reservas/{id_}/')
+        resp = api.post('/api/salas/', {'nome': 'Sala API', 'capacidade': 4})
+        api.post('/api/recursos/', {'sala': resp.data['id'], 'nome': 'Lousa'})
+        self.assertEqual(self.acoes('reserva'), ['criou', 'editou', 'cancelou', 'excluiu'])
+        self.assertEqual(self.acoes('sala'), ['criou'])
+        self.assertEqual(self.acoes('recurso'), ['adicionou'])
+
+    def test_cadastro_publico_gera_registro(self):
+        self.client.post('/contas/cadastro/', {
+            'username': 'novo', 'email': 'novo@example.com', 'password1': 'Senha-Forte-987',
+            'password2': 'Senha-Forte-987', 'organizacao': self.org_b.id,
+        })
+        registro = RegistroAtividade.objects.get(acao='cadastrou')
+        self.assertEqual(registro.usuario.username, 'novo')
+        self.assertEqual(registro.organizacao, self.org_b)
+        self.assertEqual(registro.descricao, 'novo criou a própria conta na organização Org B')
+
+    def test_registro_e_somente_leitura_no_admin(self):
+        registro = RegistroAtividade.objects.create(usuario=self.usuario, organizacao=self.org_a,
+                                                    acao='criou', tipo_objeto='reserva', descricao='teste')
+        chefe = User.objects.create_superuser('chefe', password='x')
+        self.client.force_login(chefe)
+        base = '/admin/core/registroatividade/'
+        lista = self.client.get(base)
+        self.assertEqual(lista.status_code, 200)
+        self.assertContains(lista, 'teste')
+        self.assertEqual(self.client.get(base + 'add/').status_code, 403)
+        alterar = self.client.get(f'{base}{registro.id}/change/')
+        self.assertNotContains(alterar, 'name="_save"')
+        self.assertEqual(self.client.post(f'{base}{registro.id}/change/', {'descricao': 'mudou'}).status_code, 403)
+        registro.refresh_from_db()
+        self.assertEqual(registro.descricao, 'teste')
+        # Busca e filtros
+        self.assertEqual(self.client.get(base, {'q': 'teste'}).context['cl'].result_count, 1)
+        self.assertEqual(self.client.get(base, {'acao__exact': 'criou'}).context['cl'].result_count, 1)
+        # Só o superusuário apaga
+        self.client.post(f'{base}{registro.id}/delete/', {'post': 'yes'})
+        self.assertFalse(RegistroAtividade.objects.filter(id=registro.id).exists())

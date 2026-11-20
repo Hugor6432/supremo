@@ -9,7 +9,7 @@
     {% include "salas/_resumo_reserva.html" %}
     <div class="alert alert-danger mb-0">
         {% include "icones/alerta.html" %}
-        <div>Esta ação não pode ser desfeita!</div>
+        <div>A reserva some do site e o horário fica livre. O administrador pode restaurá-la pelo Admin.</div>
     </div>
     <form method="post">
         {% csrf_token %}

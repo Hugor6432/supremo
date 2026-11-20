@@ -3,6 +3,7 @@ from django.contrib.auth import login
 from django.db import transaction
 from django.shortcuts import redirect, render
 
+from .atividades import registra
 from .forms import CadastroForm
 
 
@@ -16,6 +17,9 @@ def cadastro(request):
             # Usuário e Perfil são criados juntos ou nenhum dos dois
             with transaction.atomic():
                 user = form.save()
+                org = user.perfil.organizacao
+                registra(user, 'cadastrou', user,
+                         f"{user.username} criou a própria conta na organização {org}", organizacao=org)
             login(request, user)
             messages.success(request, 'Conta criada! Você já pode reservar salas.')
             return redirect('lista_salas')

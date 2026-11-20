@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import ReadOnlyPasswordHashField, UserCreationForm
 from django.contrib.auth.models import User, Group
@@ -153,21 +153,71 @@ class UsuarioAdmin(BaseUserAdmin):
 admin.site.register(User, UsuarioAdmin)
 
 
+class ExcluidaFilter(admin.SimpleListFilter):
+    title = "Excluída"
+    parameter_name = 'excluida'
+
+    def lookups(self, request, model_admin):
+        return [('sim', 'Sim'), ('nao', 'Não')]
+
+    def queryset(self, request, queryset):
+        if self.value() == 'sim':
+            return queryset.filter(excluida_em__isnull=False)
+        if self.value() == 'nao':
+            return queryset.filter(excluida_em__isnull=True)
+        return queryset
+
+
+class ExclusaoSuaveAdmin(admin.ModelAdmin):
+    # No Admin aparecem também os excluídos, que podem ser restaurados ou apagados de vez
+    actions = ['restaurar_selecionadas']
+
+    def get_queryset(self, request):
+        queryset = self.model.todos.get_queryset()
+        ordering = self.get_ordering(request)
+        return queryset.order_by(*ordering) if ordering else queryset
+
+    def motivo_para_nao_restaurar(self, obj):
+        return None
+
+    @admin.action(description="Restaurar selecionadas")
+    def restaurar_selecionadas(self, request, queryset):
+        restauradas = 0
+        for obj in queryset.filter(excluida_em__isnull=False):
+            motivo = self.motivo_para_nao_restaurar(obj)
+            if motivo:
+                self.message_user(request, f"Não foi possível restaurar {obj}: {motivo}", messages.WARNING)
+                continue
+            obj.restaurar()
+            restauradas += 1
+        if restauradas:
+            self.message_user(request, f"{restauradas} item(ns) restaurado(s).", messages.SUCCESS)
+
+
 class RecursoInline(admin.TabularInline):
     model = Recurso
     extra = 1
     fields = ('nome', 'descricao')
 
+    def get_queryset(self, request):
+        return Recurso.todos.all()
+
 @admin.register(Sala)
-class SalaAdmin(admin.ModelAdmin):
+class SalaAdmin(ExclusaoSuaveAdmin):
     inlines = [RecursoInline]
-    list_display = ('nome', 'organizacao', 'capacidade', 'exige_aprovacao', 'total_recursos')
-    list_filter = ('organizacao',)
+    list_display = ('nome', 'organizacao', 'capacidade', 'exige_aprovacao', 'total_recursos',
+                    'excluida_em', 'excluida_por')
+    list_filter = ('organizacao', ExcluidaFilter)
     search_fields = ('nome',)
     
     def total_recursos(self, obj):
-        return obj.recursos.count()
+        return Recurso.todos.filter(sala=obj).count()
     total_recursos.short_description = "🔧 Recursos"
+
+    def motivo_para_nao_restaurar(self, obj):
+        if Sala.objects.filter(organizacao=obj.organizacao, nome__iexact=obj.nome).exists():
+            return "já existe outra sala ativa com esse nome."
+        return None
 
     def save_formset(self, request, form, formset, change):
         # Recursos ficam na organização da sala
@@ -185,6 +235,9 @@ class RecursoAdmin(admin.ModelAdmin):
     search_fields = ('nome', 'sala__nome')
     exclude = ('organizacao',)
 
+    def get_queryset(self, request):
+        return Recurso.todos.all()
+
     def save_model(self, request, obj, form, change):
         obj.organizacao = obj.sala.organizacao
         super().save_model(request, obj, form, change)
@@ -198,9 +251,10 @@ class RecorrenciaAdmin(admin.ModelAdmin):
 
 
 @admin.register(Reserva)
-class ReservaAdmin(admin.ModelAdmin):
-    list_display = ('sala', 'organizacao', 'reservado_por', 'email_de_quem_reservou', 'data_inicio', 'status', 'tem_conflito')
-    list_filter = ('organizacao', 'status', 'sala', 'data_inicio')
+class ReservaAdmin(ExclusaoSuaveAdmin):
+    list_display = ('sala', 'organizacao', 'reservado_por', 'email_de_quem_reservou', 'data_inicio', 'status',
+                    'tem_conflito', 'excluida_em', 'excluida_por')
+    list_filter = ('organizacao', 'status', 'sala', 'data_inicio', ExcluidaFilter)
     search_fields = ('responsavel', 'sala__nome', 'criado_por__username', 'criado_por__email')
     date_hierarchy = 'data_inicio'
     fieldsets = (
@@ -210,6 +264,13 @@ class ReservaAdmin(admin.ModelAdmin):
     )
     readonly_fields = ('criado_por',)
     list_select_related = ('sala', 'organizacao', 'criado_por')
+
+    def motivo_para_nao_restaurar(self, obj):
+        if obj.sala.excluida_em:
+            return "a sala dela está excluída."
+        if obj.status != 'cancelada' and obj.tem_conflito():
+            return "o horário já foi ocupado por outra reserva."
+        return None
 
     @admin.display(description="Reservado por", ordering='criado_por__username')
     def reservado_por(self, obj):

@@ -4,11 +4,29 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
-from core.models import DaOrganizacao
+from core.models import DaOrganizacao, ExclusaoSuave
 from core.utils import eh_operador_usuario
 
 
-class Sala(DaOrganizacao):
+class SalasAtivas(models.Manager):
+    # Salas excluídas pelo site somem de todas as telas e da API
+    def get_queryset(self):
+        return super().get_queryset().filter(excluida_em__isnull=True)
+
+
+class RecursosAtivos(models.Manager):
+    # Recursos de sala excluída também somem
+    def get_queryset(self):
+        return super().get_queryset().filter(sala__excluida_em__isnull=True)
+
+
+class ReservasAtivas(models.Manager):
+    # Reserva excluída, ou de sala excluída, some e não bloqueia horário
+    def get_queryset(self):
+        return super().get_queryset().filter(excluida_em__isnull=True, sala__excluida_em__isnull=True)
+
+
+class Sala(DaOrganizacao, ExclusaoSuave):
     nome = models.CharField(max_length=100)
     capacidade = models.IntegerField()
     descricao = models.TextField(blank=True, null=True)
@@ -16,6 +34,9 @@ class Sala(DaOrganizacao):
         default=False,
         help_text="Reservas novas ficam pendentes até um operador aprovar.",
     )
+
+    objects = SalasAtivas()
+    todos = models.Manager()
     
     def __str__(self):
         return f"{self.nome} ({self.capacidade} pessoas)"
@@ -23,8 +44,10 @@ class Sala(DaOrganizacao):
     class Meta:
         verbose_name_plural = "Salas"
         constraints = [
+            # Vale só entre salas ativas: uma sala excluída libera o nome
             models.UniqueConstraint(
                 fields=['organizacao', 'nome'],
+                condition=models.Q(excluida_em__isnull=True),
                 name='sala_nome_unico_por_org',
             ),
         ]
@@ -34,6 +57,9 @@ class Recurso(DaOrganizacao):
     nome = models.CharField(max_length=100)
     descricao = models.TextField(blank=True, null=True)
     sala = models.ForeignKey(Sala, on_delete=models.CASCADE, related_name='recursos')
+
+    objects = RecursosAtivos()
+    todos = models.Manager()
     
     def __str__(self):
         return f"{self.nome} - {self.sala.nome}"
@@ -58,7 +84,7 @@ class Recorrencia(DaOrganizacao):
         verbose_name_plural = "Recorrências"
 
 
-class Reserva(DaOrganizacao):
+class Reserva(DaOrganizacao, ExclusaoSuave):
     STATUSOS = [
         ('pendente', 'Pendente'),
         ('confirmada', 'Confirmada'),
@@ -79,6 +105,9 @@ class Reserva(DaOrganizacao):
         blank=True,
         related_name='reservas_criadas',
     )
+
+    objects = ReservasAtivas()
+    todos = models.Manager()
 
     MSG_24H = "Só é possível editar ou cancelar a reserva com mais de 24 horas de antecedência."
     MSG_NAO_E_DONO = "Você só pode editar ou cancelar as reservas que você criou."

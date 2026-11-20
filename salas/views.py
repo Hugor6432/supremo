@@ -7,6 +7,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 
 from core.utils import org_atual, exige_operador
+from . import atividades
 from .models import Sala, Recurso, Reserva
 from .forms import RecursoFormSet, ReservaForm, SalaForm
 
@@ -49,13 +50,19 @@ def lista_salas(request):
     return render(request, 'salas/lista_salas.html', contexto)
 
 
-def _salva_recursos(formset, sala, org):
-    # Recursos ficam na organização da sala
+def _salva_recursos(formset, sala, org, usuario):
+    # Recursos ficam na organização da sala; cada mudança vai para o histórico
     formset.instance = sala
-    for recurso in formset.save(commit=False):
+    formset.save(commit=False)
+    for recurso in formset.new_objects:
         recurso.organizacao = org
         recurso.save()
+        atividades.recurso(usuario, 'adicionou', recurso)
+    for recurso, _campos in formset.changed_objects:
+        recurso.save()
+        atividades.recurso(usuario, 'editou', recurso)
     for recurso in formset.deleted_objects:
+        atividades.recurso(usuario, 'removeu', recurso)
         recurso.delete()
 
 
@@ -72,7 +79,8 @@ def criar_sala(request):
                 sala = form.save(commit=False)
                 sala.organizacao = org
                 sala.save()
-                _salva_recursos(formset, sala, org)
+                atividades.sala(request.user, 'criou', sala)
+                _salva_recursos(formset, sala, org, request.user)
             messages.success(request, 'Sala criada com sucesso!')
             return redirect('lista_salas')
     else:
@@ -92,7 +100,9 @@ def editar_sala(request, id):
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
                 form.save()
-                _salva_recursos(formset, sala, org)
+                if form.has_changed():
+                    atividades.sala(request.user, 'editou', sala)
+                _salva_recursos(formset, sala, org, request.user)
             messages.success(request, 'Sala atualizada com sucesso!')
             return redirect('lista_salas')
     else:
@@ -107,8 +117,11 @@ def deletar_sala(request, id):
     exige_operador(request)
     sala = get_object_or_404(Sala, id=id, organizacao=org)
     if request.method == 'POST':
-        sala.delete()
-        messages.success(request, 'Sala deletada com sucesso!')
+        # Só marca como excluída; o Admin pode restaurar
+        with transaction.atomic():
+            sala.excluir(request.user)
+            atividades.sala(request.user, 'excluiu', sala)
+        messages.success(request, 'Sala excluída com sucesso!')
         return redirect('lista_salas')
     return render(request, 'salas/deletar_sala.html', {'sala': sala})
 
@@ -145,7 +158,9 @@ def criar_reserva(request):
             if reserva.tem_conflito():
                 messages.error(request, 'Conflito! Já existe uma reserva neste horário para esta sala.')
                 return render(request, 'salas/criar_reserva.html', {'form': form})
-            reserva.save()
+            with transaction.atomic():
+                reserva.save()
+                atividades.reserva(request.user, 'criou', reserva)
             if reserva.status == 'pendente':
                 messages.success(request, 'Reserva criada! Ela aguarda a aprovação de um operador.')
             else:
@@ -173,7 +188,9 @@ def editar_reserva(request, id):
                 if reserva_atualizada.tem_conflito():
                     messages.error(request, 'Conflito! Já existe uma reserva neste horário para esta sala.')
                     return render(request, 'salas/editar_reserva.html', {'form': form, 'reserva': reserva})
-                reserva_atualizada.save()
+                with transaction.atomic():
+                    reserva_atualizada.save()
+                    atividades.reserva(request.user, 'editou', reserva_atualizada)
                 messages.success(request, 'Reserva atualizada com sucesso!')
                 return redirect('lista_reservas')
     else:
@@ -193,14 +210,16 @@ def cancelar_reserva(request, id):
     elif not reserva.pode_alterar(request.user):
         erro = Reserva.MSG_24H
     if request.method == 'POST' and not erro:
-        reserva.status = 'cancelada'
-        reserva.save(update_fields=['status'])
+        with transaction.atomic():
+            reserva.status = 'cancelada'
+            reserva.save(update_fields=['status'])
+            atividades.reserva(request.user, 'cancelou', reserva)
         messages.success(request, 'Reserva cancelada. O horário ficou livre.')
         return redirect('lista_reservas')
     return render(request, 'salas/cancelar_reserva.html', {'reserva': reserva, 'erro': erro})
 
 
-def _decide_pendente(request, id, novo_status, texto):
+def _decide_pendente(request, id, novo_status, acao, texto):
     # Aprovar e recusar: só operador, só reserva pendente
     org = org_atual(request)
     exige_operador(request)
@@ -208,8 +227,10 @@ def _decide_pendente(request, id, novo_status, texto):
     if reserva.status != 'pendente':
         messages.error(request, 'Só reservas pendentes podem ser aprovadas ou recusadas.')
     else:
-        reserva.status = novo_status
-        reserva.save(update_fields=['status'])
+        with transaction.atomic():
+            reserva.status = novo_status
+            reserva.save(update_fields=['status'])
+            atividades.reserva(request.user, acao, reserva)
         messages.success(request, texto)
     return redirect('lista_reservas')
 
@@ -217,13 +238,13 @@ def _decide_pendente(request, id, novo_status, texto):
 @login_required
 @require_POST
 def aprovar_reserva(request, id):
-    return _decide_pendente(request, id, 'confirmada', 'Reserva aprovada e confirmada!')
+    return _decide_pendente(request, id, 'confirmada', 'aprovou', 'Reserva aprovada e confirmada!')
 
 
 @login_required
 @require_POST
 def recusar_reserva(request, id):
-    return _decide_pendente(request, id, 'cancelada', 'Reserva recusada.')
+    return _decide_pendente(request, id, 'cancelada', 'recusou', 'Reserva recusada.')
 
 
 @login_required
@@ -232,8 +253,11 @@ def deletar_reserva(request, id):
     exige_operador(request)
     reserva = get_object_or_404(Reserva, id=id, organizacao=org)
     if request.method == 'POST':
-        reserva.delete()
-        messages.success(request, 'Reserva deletada com sucesso!')
+        # Só marca como excluída; o horário fica livre e o Admin pode restaurar
+        with transaction.atomic():
+            reserva.excluir(request.user)
+            atividades.reserva(request.user, 'excluiu', reserva)
+        messages.success(request, 'Reserva excluída com sucesso!')
         return redirect('lista_reservas')
     return render(request, 'salas/deletar_reserva.html', {'reserva': reserva})
 
