@@ -4,47 +4,19 @@
 <div class="page-head">
     <h1><span class="ico-titulo">{% include "icones/editar.html" %}</span>Editar Sala: {{ sala.nome }}</h1>
 </div>
-<div class="row g-4">
-    <div class="col-lg-7">
-        <form method="post" novalidate class="painel">
-            {% csrf_token %}
-            {% include "salas/_campos_sala.html" %}
-            <div class="rodape-form">
-                <button type="submit" class="btn btn-success btn-lg">{% include "icones/salvar.html" %}Salvar Alterações</button>
-                <a href="{% url 'lista_salas' %}" class="btn btn-secondary btn-lg">Cancelar</a>
-            </div>
-        </form>
-    </div>
-
-    <!-- Recursos (Apenas Visualização) -->
-    <div class="col-lg-5">
-        <div class="painel h-100">
-            <div class="painel-titulo">{% include "icones/recurso.html" %} Recursos da Sala</div>
-            {% if sala.recursos.all %}
-                <ul class="lista-recursos">
-                    {% for recurso in sala.recursos.all %}
-                    <li class="info">
-                        <span class="ico-info">{% include "icones/check.html" %}</span>
-                        <div>
-                            <span class="valor">{{ recurso.nome }}</span>
-                            {% if recurso.descricao %}<small class="d-block text-muted">{{ recurso.descricao }}</small>{% endif %}
-                        </div>
-                    </li>
-                    {% endfor %}
-                </ul>
-                <p class="text-muted small mt-3 mb-0">
-                    <strong>Para adicionar/editar/remover recursos,</strong> acesse o <strong>Admin → Salas</strong>
-                </p>
-            {% else %}
-                <div class="vazio py-4">
-                    <div class="ico-vazio">{% include "icones/vazio.html" %}</div>
-                    <h5>Nenhum recurso adicionado</h5>
-                    <p class="small mb-0">
-                        Os recursos serão listados aqui quando o administrador adicioná-los no <strong>Admin → Salas</strong>
-                    </p>
-                </div>
-            {% endif %}
+<form method="post" novalidate>
+    {% csrf_token %}
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="painel h-100">{% include "salas/_campos_sala.html" %}</div>
+        </div>
+        <div class="col-lg-6">
+            <div class="painel h-100">{% include "salas/_recursos_formset.html" %}</div>
         </div>
     </div>
-</div>
+    <div class="barra-acoes mt-4">
+        <button type="submit" class="btn btn-success btn-lg">{% include "icones/salvar.html" %}Salvar Alterações</button>
+        <a href="{% url 'lista_salas' %}" class="btn btn-secondary btn-lg">Cancelar</a>
+    </div>
+</form>
 {% endblock %}

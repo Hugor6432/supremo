@@ -4,22 +4,19 @@
 <div class="page-head">
     <h1><span class="ico-titulo">{% include "icones/mais.html" %}</span>Criar Nova Sala</h1>
 </div>
-<div class="row g-4">
-    <div class="col-lg-7">
-        <form method="post" novalidate class="painel">
-            {% csrf_token %}
-            {% include "salas/_campos_sala.html" %}
-            <div class="rodape-form">
-                <button type="submit" class="btn btn-success btn-lg">{% include "icones/check.html" %}Criar Sala</button>
-                <a href="{% url 'lista_salas' %}" class="btn btn-secondary btn-lg">Cancelar</a>
-            </div>
-        </form>
-    </div>
-    <div class="col-lg-5">
-        <div class="alert alert-info">
-            {% include "icones/info.html" %}
-            <div><strong>Nota:</strong> Após criar a sala, você poderá adicionar recursos no Admin → Salas</div>
+<form method="post" novalidate>
+    {% csrf_token %}
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="painel h-100">{% include "salas/_campos_sala.html" %}</div>
+        </div>
+        <div class="col-lg-6">
+            <div class="painel h-100">{% include "salas/_recursos_formset.html" %}</div>
         </div>
     </div>
-</div>
+    <div class="barra-acoes mt-4">
+        <button type="submit" class="btn btn-success btn-lg">{% include "icones/check.html" %}Criar Sala</button>
+        <a href="{% url 'lista_salas' %}" class="btn btn-secondary btn-lg">Cancelar</a>
+    </div>
+</form>
 {% endblock %}

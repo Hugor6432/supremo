@@ -9,7 +9,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from core.models import Organizacao, Perfil
-from .models import Sala, Reserva
+from .models import Recurso, Sala, Reserva
 
 
 class Base(TestCase):
@@ -73,7 +73,8 @@ class TelasSalasTest(Base):
     def test_operador_e_admin_criam_sala(self):
         for user, nome in [(self.operador, 'Sala Op'), (self.admin, 'Sala Adm')]:
             self.client.force_login(user)
-            resp = self.client.post(reverse('criar_sala'), {'nome': nome, 'capacidade': 5, 'descricao': ''})
+            dados = {'nome': nome, 'capacidade': 5, 'descricao': ''} | RecursosTest.gestao(0)
+            resp = self.client.post(reverse('criar_sala'), dados)
             self.assertEqual(resp.status_code, 302)
             self.assertTrue(Sala.objects.filter(nome=nome, organizacao=self.org_a).exists())
 
@@ -527,3 +528,93 @@ class ResponsavelDaContaTest(Base):
         for termo in ['joao', 'joao@email.com']:
             resp = self.client.get('/admin/salas/reserva/', {'q': termo})
             self.assertEqual(resp.context['cl'].result_count, 1, termo)
+
+
+# ===== RECURSOS NO CADASTRO DA SALA =====
+
+class RecursosTest(Base):
+    @staticmethod
+    def gestao(total, iniciais=0):
+        return {
+            'recursos-TOTAL_FORMS': str(total), 'recursos-INITIAL_FORMS': str(iniciais),
+            'recursos-MIN_NUM_FORMS': '0', 'recursos-MAX_NUM_FORMS': '1000',
+        }
+
+    def test_funcionario_cria_sala_com_dois_recursos(self):
+        self.client.force_login(self.operador)
+        dados = {'nome': 'Lab', 'capacidade': 20, 'descricao': ''} | self.gestao(3) | {
+            'recursos-0-nome': 'Projetor', 'recursos-0-descricao': 'Full HD',
+            'recursos-1-nome': 'Quadro', 'recursos-1-descricao': '',
+            'recursos-2-nome': '', 'recursos-2-descricao': '',  # linha em branco
+        }
+        self.assertEqual(self.client.post(reverse('criar_sala'), dados).status_code, 302)
+        sala = Sala.objects.get(nome='Lab')
+        self.assertEqual(sorted(sala.recursos.values_list('nome', flat=True)), ['Projetor', 'Quadro'])
+        self.assertEqual(set(sala.recursos.values_list('organizacao_id', flat=True)), {self.org_a.id})
+        self.assertEqual(sala.recursos.get(nome='Projetor').descricao, 'Full HD')
+
+    def test_funcionario_edita_um_recurso_e_remove_outro(self):
+        projetor = Recurso.objects.create(organizacao=self.org_a, sala=self.sala, nome='Projetor')
+        tv = Recurso.objects.create(organizacao=self.org_a, sala=self.sala, nome='TV')
+        self.client.force_login(self.operador)
+        dados = {'nome': self.sala.nome, 'capacidade': self.sala.capacidade, 'descricao': ''} | self.gestao(3, 2) | {
+            'recursos-0-id': projetor.id, 'recursos-0-nome': 'Projetor 4K', 'recursos-0-descricao': '',
+            'recursos-1-id': tv.id, 'recursos-1-nome': 'TV', 'recursos-1-descricao': '', 'recursos-1-DELETE': 'on',
+            'recursos-2-nome': '', 'recursos-2-descricao': '',
+        }
+        resp = self.client.post(reverse('editar_sala', args=[self.sala.id]), dados)
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(list(self.sala.recursos.values_list('nome', flat=True)), ['Projetor 4K'])
+        self.assertFalse(Recurso.objects.filter(id=tv.id).exists())
+
+    def test_erro_em_recurso_nao_salva_nada(self):
+        self.client.force_login(self.operador)
+        dados = {'nome': 'Sala Nova', 'capacidade': 5, 'descricao': ''} | self.gestao(1) | {
+            'recursos-0-nome': '', 'recursos-0-descricao': 'Sem nome',
+        }
+        resp = self.client.post(reverse('criar_sala'), dados)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.context['formset'].errors[0].get('nome'))
+        self.assertFalse(Sala.objects.filter(nome='Sala Nova').exists())
+        self.assertFalse(Recurso.objects.exists())
+
+    def test_nao_edita_recurso_de_outra_sala(self):
+        de_outra = Recurso.objects.create(organizacao=self.org_a, sala=self.sala_aprov, nome='Café')
+        self.client.force_login(self.operador)
+        dados = {'nome': self.sala.nome, 'capacidade': self.sala.capacidade, 'descricao': ''} | self.gestao(1, 1) | {
+            'recursos-0-id': de_outra.id, 'recursos-0-nome': 'Trocado', 'recursos-0-descricao': '',
+        }
+        # O Django ignora o id que não é desta sala: nada muda e nada é criado
+        self.client.post(reverse('editar_sala', args=[self.sala.id]), dados)
+        de_outra.refresh_from_db()
+        self.assertEqual((de_outra.nome, de_outra.sala_id), ('Café', self.sala_aprov.id))
+        self.assertFalse(self.sala.recursos.exists())
+
+    def test_usuario_comum_recebe_403(self):
+        self.client.force_login(self.usuario)
+        dados = {'nome': 'X', 'capacidade': 5, 'descricao': ''} | self.gestao(1) | {'recursos-0-nome': 'Projetor'}
+        self.assertEqual(self.client.get(reverse('criar_sala')).status_code, 403)
+        self.assertEqual(self.client.post(reverse('criar_sala'), dados).status_code, 403)
+        self.assertEqual(self.client.get(reverse('editar_sala', args=[self.sala.id])).status_code, 403)
+        self.assertEqual(self.client.post(reverse('editar_sala', args=[self.sala.id]), dados).status_code, 403)
+        self.assertFalse(Recurso.objects.exists())
+
+    def test_recurso_criado_aparece_no_filtro_da_lista(self):
+        self.client.force_login(self.operador)
+        dados = {'nome': 'Lab', 'capacidade': 20, 'descricao': ''} | self.gestao(1) | {
+            'recursos-0-nome': 'Impressora 3D', 'recursos-0-descricao': '',
+        }
+        self.client.post(reverse('criar_sala'), dados)
+        self.client.force_login(self.usuario)
+        resp = self.client.get(reverse('lista_salas'))
+        self.assertContains(resp, '<option value="Impressora 3D"')
+        filtrada = self.client.get(reverse('lista_salas'), {'recurso': 'Impressora 3D'})
+        self.assertEqual([s.nome for s in filtrada.context['salas']], ['Lab'])
+
+    def test_telas_sem_aviso_do_admin_e_com_botao_de_adicionar(self):
+        self.client.force_login(self.operador)
+        for url in [reverse('criar_sala'), reverse('editar_sala', args=[self.sala.id])]:
+            resp = self.client.get(url)
+            self.assertNotContains(resp, 'Admin → Salas')
+            self.assertContains(resp, 'id="adicionar-recurso"')
+            self.assertContains(resp, 'recursos-__prefix__-nome')

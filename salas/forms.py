@@ -1,5 +1,5 @@
 from django import forms
-from .models import Sala, Recorrencia, Reserva
+from .models import Sala, Recurso, Recorrencia, Reserva
 
 
 class SalaForm(forms.ModelForm):
@@ -26,6 +26,20 @@ class SalaForm(forms.ModelForm):
         if duplicadas.exists():
             raise forms.ValidationError("Já existe uma sala com esse nome na sua organização.")
         return nome
+
+
+# Recursos cadastrados junto com a sala; linhas em branco são ignoradas
+RecursoFormSet = forms.inlineformset_factory(
+    Sala, Recurso,
+    fields=['nome', 'descricao'],
+    extra=1,
+    can_delete=True,
+    can_delete_extra=False,
+    widgets={
+        'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome (ex.: Projetor)'}),
+        'descricao': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Descrição (opcional)'}),
+    },
+)
 
 
 class ReservaForm(forms.ModelForm):

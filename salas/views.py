@@ -1,13 +1,14 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 
 from core.utils import org_atual, exige_operador
 from .models import Sala, Recurso, Reserva
-from .forms import ReservaForm, SalaForm
+from .forms import RecursoFormSet, ReservaForm, SalaForm
 
 
 # ===== VIEWS DE SALAS =====
@@ -48,21 +49,36 @@ def lista_salas(request):
     return render(request, 'salas/lista_salas.html', contexto)
 
 
+def _salva_recursos(formset, sala, org):
+    # Recursos ficam na organização da sala
+    formset.instance = sala
+    for recurso in formset.save(commit=False):
+        recurso.organizacao = org
+        recurso.save()
+    for recurso in formset.deleted_objects:
+        recurso.delete()
+
+
 @login_required
 def criar_sala(request):
     org = org_atual(request)
     exige_operador(request)
     if request.method == 'POST':
         form = SalaForm(request.POST, org=org)
-        if form.is_valid():
-            sala = form.save(commit=False)
-            sala.organizacao = org
-            sala.save()
-            messages.success(request, 'Sala criada com sucesso! Adicione recursos no Admin.')
+        formset = RecursoFormSet(request.POST, instance=Sala(), prefix='recursos')
+        if form.is_valid() and formset.is_valid():
+            # Sala e recursos são salvos juntos ou nada é salvo
+            with transaction.atomic():
+                sala = form.save(commit=False)
+                sala.organizacao = org
+                sala.save()
+                _salva_recursos(formset, sala, org)
+            messages.success(request, 'Sala criada com sucesso!')
             return redirect('lista_salas')
     else:
         form = SalaForm(org=org)
-    return render(request, 'salas/criar_sala.html', {'form': form})
+        formset = RecursoFormSet(instance=Sala(), prefix='recursos')
+    return render(request, 'salas/criar_sala.html', {'form': form, 'formset': formset})
 
 
 @login_required
@@ -72,13 +88,17 @@ def editar_sala(request, id):
     sala = get_object_or_404(Sala, id=id, organizacao=org)
     if request.method == 'POST':
         form = SalaForm(request.POST, instance=sala, org=org)
-        if form.is_valid():
-            form.save()
+        formset = RecursoFormSet(request.POST, instance=sala, prefix='recursos')
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                form.save()
+                _salva_recursos(formset, sala, org)
             messages.success(request, 'Sala atualizada com sucesso!')
             return redirect('lista_salas')
     else:
         form = SalaForm(instance=sala, org=org)
-    return render(request, 'salas/editar_sala.html', {'form': form, 'sala': sala})
+        formset = RecursoFormSet(instance=sala, prefix='recursos')
+    return render(request, 'salas/editar_sala.html', {'form': form, 'formset': formset, 'sala': sala})
 
 
 @login_required

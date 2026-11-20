@@ -1,0 +1,27 @@
+<div class="painel-titulo">{% include "icones/recurso.html" %} Recursos da sala</div>
+{{ formset.management_form }}
+{% if formset.non_form_errors %}
+<div class="alert alert-danger">{% include "icones/alerta.html" %}<div>{{ formset.non_form_errors }}</div></div>
+{% endif %}
+<p class="text-muted small mb-3">Cadastre os itens disponíveis na sala. Linhas em branco são ignoradas.</p>
+<div id="recursos-lista" class="recursos-lista">
+    {% for rf in formset %}{% include "salas/_recurso_linha.html" with rf=rf %}{% endfor %}
+</div>
+<button type="button" id="adicionar-recurso" class="btn btn-sm btn-outline-secondary">{% include "icones/mais.html" %}Adicionar recurso</button>
+
+<template id="recurso-modelo">{% include "salas/_recurso_linha.html" with rf=formset.empty_form %}</template>
+<script>
+    (function () {
+        // Cria uma nova linha de recurso sem recarregar a página
+        var lista = document.getElementById('recursos-lista');
+        var modelo = document.getElementById('recurso-modelo');
+        var total = document.getElementById('id_recursos-TOTAL_FORMS');
+        document.getElementById('adicionar-recurso').addEventListener('click', function () {
+            var n = parseInt(total.value, 10);
+            lista.insertAdjacentHTML('beforeend', modelo.innerHTML.replace(/__prefix__/g, n));
+            total.value = n + 1;
+            var campo = lista.lastElementChild.querySelector('input[type="text"]');
+            if (campo) { campo.focus(); }
+        });
+    })();
+</script>

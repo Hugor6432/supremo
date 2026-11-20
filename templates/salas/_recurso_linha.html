@@ -1,0 +1,21 @@
+<div class="recurso-linha">
+    {{ rf.id }}
+    {% if rf.non_field_errors %}<div class="erro-campo mb-2">{{ rf.non_field_errors }}</div>{% endif %}
+    <div class="row g-2 align-items-start">
+        <div class="col-sm">
+            <label for="{{ rf.nome.id_for_label }}" class="visually-hidden">Nome do recurso</label>
+            {{ rf.nome }}
+            {% if rf.nome.errors %}<div class="erro-campo">{{ rf.nome.errors }}</div>{% endif %}
+        </div>
+        <div class="col-sm">
+            <label for="{{ rf.descricao.id_for_label }}" class="visually-hidden">Descrição do recurso</label>
+            {{ rf.descricao }}
+            {% if rf.descricao.errors %}<div class="erro-campo">{{ rf.descricao.errors }}</div>{% endif %}
+        </div>
+        {% if rf.instance.pk %}
+        <div class="col-sm-auto">
+            <label class="remover">{{ rf.DELETE }} Remover</label>
+        </div>
+        {% endif %}
+    </div>
+</div>

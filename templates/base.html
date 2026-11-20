@@ -191,6 +191,12 @@
         .lista-recursos .tag { margin: 0; }
         .lista-recursos li.info { gap: .7rem; flex-wrap: nowrap; align-items: flex-start; margin-bottom: .8rem; }
         .lista-recursos li.info .ico-info { width: 28px; height: 28px; border-radius: 8px; font-size: .85rem; }
+        /* Linhas de recurso no cadastro da sala */
+        .recursos-lista { display: grid; gap: .6rem; margin-bottom: .9rem; }
+        .recurso-linha { padding: .7rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #f7f9fd; transition: opacity .2s, background .2s; }
+        .recurso-linha:has(input[name$="-DELETE"]:checked) { opacity: .6; background: var(--bad-bg); }
+        .remover { display: flex; align-items: center; gap: .4rem; min-height: 44px; font-size: .85rem; font-weight: 600; color: var(--bad); cursor: pointer; margin: 0; }
+        .remover input { width: 1.1rem; height: 1.1rem; accent-color: var(--bad-line); cursor: pointer; }
         .secao-rotulo { display: flex; align-items: center; gap: .45rem; font-size: .82rem; font-weight: 600; color: var(--ink); margin-bottom: .55rem; }
 
         /* ===== Status das reservas ===== */
