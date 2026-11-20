@@ -827,3 +827,70 @@ class RegistroAtividadeTest(Base):
         # Só o superusuário apaga
         self.client.post(f'{base}{registro.id}/delete/', {'post': 'yes'})
         self.assertFalse(RegistroAtividade.objects.filter(id=registro.id).exists())
+
+
+# ===== PÁGINA DE DETALHES DA SALA =====
+
+class DetalhesSalaTest(Base):
+    def test_usuario_ve_recursos_e_proximas_reservas(self):
+        Recurso.objects.create(organizacao=self.org_a, sala=self.sala, nome='Projetor', descricao='Full HD')
+        futura = self.reserva(self.outro, 30)
+        pendente = self.reserva(self.outro, 60, status='pendente')
+        cancelada = self.reserva(self.outro, 90, status='cancelada')
+        passada = self.reserva(self.outro, -30)
+        excluida = self.reserva(self.outro, 120)
+        excluida.excluir(self.operador)
+        self.client.force_login(self.usuario)
+        resp = self.client.get(reverse('detalhes_sala', args=[self.sala.id]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Sala 1')
+        self.assertContains(resp, '10 pessoas')
+        self.assertContains(resp, 'Projetor')
+        self.assertContains(resp, 'Full HD')
+        self.assertEqual(list(resp.context['proximas']), [futura, pendente])
+        self.assertContains(resp, 'outro · sem e-mail')
+        self.assertContains(resp, timezone.localtime(futura.data_inicio).strftime('%d/%m/%Y'))
+        for fora in [cancelada, passada, excluida]:
+            self.assertNotIn(fora, resp.context['proximas'])
+        # Usuário comum não vê Editar nem Deletar
+        self.assertNotContains(resp, reverse('editar_sala', args=[self.sala.id]))
+        self.assertNotContains(resp, reverse('deletar_sala', args=[self.sala.id]))
+
+    def test_funcionario_ve_editar_e_deletar(self):
+        self.client.force_login(self.operador)
+        resp = self.client.get(reverse('detalhes_sala', args=[self.sala.id]))
+        self.assertContains(resp, reverse('editar_sala', args=[self.sala.id]))
+        self.assertContains(resp, reverse('deletar_sala', args=[self.sala.id]))
+        self.assertContains(resp, 'Exige aprovação' if self.sala.exige_aprovacao else 'Confirmação automática')
+
+    def test_reservar_esta_sala_ja_traz_a_sala(self):
+        self.client.force_login(self.usuario)
+        resp = self.client.get(reverse('detalhes_sala', args=[self.sala_aprov.id]))
+        url = f"{reverse('criar_reserva')}?sala={self.sala_aprov.id}"
+        self.assertContains(resp, f'href="{url}"')
+        form = self.client.get(url).context['form']
+        self.assertEqual(form['sala'].value(), self.sala_aprov.id)
+        # Sala de outra organização não é pré-selecionada
+        form = self.client.get(f"{reverse('criar_reserva')}?sala={self.sala_b.id}").context['form']
+        self.assertIsNone(form['sala'].value())
+
+    def test_outra_organizacao_recebe_404(self):
+        self.client.force_login(self.usuario_b)
+        self.assertEqual(self.client.get(reverse('detalhes_sala', args=[self.sala.id])).status_code, 404)
+        self.client.force_login(self.operador)
+        self.assertEqual(self.client.get(reverse('detalhes_sala', args=[self.sala_b.id])).status_code, 404)
+
+    def test_sala_excluida_recebe_404(self):
+        self.sala.excluir(self.operador)
+        self.client.force_login(self.operador)
+        self.assertEqual(self.client.get(reverse('detalhes_sala', args=[self.sala.id])).status_code, 404)
+
+    def test_lista_de_salas_abre_a_pagina_e_mantem_os_botoes(self):
+        self.client.force_login(self.operador)
+        resp = self.client.get(reverse('lista_salas'))
+        for sala in [self.sala, self.sala_aprov]:
+            self.assertContains(resp, f'href="{reverse("detalhes_sala", args=[sala.id])}" class="link-sala stretched-link"')
+            self.assertContains(resp, reverse('editar_sala', args=[sala.id]))
+            self.assertContains(resp, reverse('deletar_sala', args=[sala.id]))
+        self.client.force_login(self.usuario)
+        self.assertContains(self.client.get(reverse('lista_salas')), reverse('detalhes_sala', args=[self.sala.id]))

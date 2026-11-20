@@ -5,6 +5,7 @@ urlpatterns = [
     # Salas
     path('salas/', views.lista_salas, name='lista_salas'),
     path('salas/criar/', views.criar_sala, name='criar_sala'),
+    path('salas/<int:id>/', views.detalhes_sala, name='detalhes_sala'),
     path('salas/<int:id>/editar/', views.editar_sala, name='editar_sala'),
     path('salas/<int:id>/deletar/', views.deletar_sala, name='deletar_sala'),
     

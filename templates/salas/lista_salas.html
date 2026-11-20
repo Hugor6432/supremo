@@ -46,7 +46,7 @@
         <div class="card item h-100">
             <!-- Header da Sala -->
             <div class="card-header d-flex justify-content-between align-items-center gap-2">
-                <h5>{{ sala.nome }}</h5>
+                <h5><a href="{% url 'detalhes_sala' sala.id %}" class="link-sala stretched-link">{{ sala.nome }}</a></h5>
                 {% if sala.exige_aprovacao %}<span class="papel" title="Reservas novas ficam pendentes até um operador aprovar.">Exige aprovação</span>{% endif %}
             </div>
 

@@ -197,6 +197,22 @@
         .recurso-linha:has(input[name$="-DELETE"]:checked) { opacity: .6; background: var(--bad-bg); }
         .remover { display: flex; align-items: center; gap: .4rem; min-height: 44px; font-size: .85rem; font-weight: 600; color: var(--bad); cursor: pointer; margin: 0; }
         .remover input { width: 1.1rem; height: 1.1rem; accent-color: var(--bad-line); cursor: pointer; }
+        /* Card de sala clicável; os botões continuam por cima do link */
+        .link-sala { color: inherit; text-decoration: none; }
+        .link-sala:hover, .link-sala:focus { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+        .card .acoes { position: relative; z-index: 2; }
+        /* Próximas reservas da sala */
+        .proximas { list-style: none; padding: 0; margin: 0; display: grid; gap: .55rem; }
+        .proxima {
+            display: flex; align-items: center; gap: .6rem 1.2rem; flex-wrap: wrap;
+            padding: .8rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            background: #f7f9fd; color: var(--ink); text-decoration: none;
+            transition: border-color .2s, background .2s;
+        }
+        .proxima:hover { border-color: #bcd0f5; background: var(--blue-soft); color: var(--ink); }
+        .proxima-data { display: flex; flex-direction: column; min-width: 120px; line-height: 1.3; }
+        .proxima-data small { color: var(--muted); }
+        .proxima-quem { flex: 1; min-width: 160px; overflow-wrap: anywhere; color: var(--text); }
         .secao-rotulo { display: flex; align-items: center; gap: .45rem; font-size: .82rem; font-weight: 600; color: var(--ink); margin-bottom: .55rem; }
 
         /* ===== Status das reservas ===== */

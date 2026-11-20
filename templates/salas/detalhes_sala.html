@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<div class="page-head">
+    <h1><span class="ico-titulo">{% include "icones/sala.html" %}</span>{{ sala.nome }}</h1>
+    <a href="{% url 'lista_salas' %}" class="btn btn-secondary">{% include "icones/voltar.html" %}Voltar</a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <!-- Informações da sala -->
+        <div class="painel mb-4">
+            <div class="painel-titulo">{% include "icones/info.html" %} Informações da sala</div>
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <div class="info">
+                        <span class="ico-info">{% include "icones/pessoas.html" %}</span>
+                        <div><span class="rotulo">Capacidade</span><span class="valor grande">{{ sala.capacidade }} pessoas</span></div>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="info">
+                        <span class="ico-info">{% include "icones/check.html" %}</span>
+                        <div>
+                            <span class="rotulo">Aprovação</span>
+                            {% if sala.exige_aprovacao %}
+                            <span class="status status-pendente mt-1">Exige aprovação</span>
+                            {% else %}
+                            <span class="status status-confirmada mt-1">Confirmação automática</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="info">
+                        <span class="ico-info">{% include "icones/nota.html" %}</span>
+                        <div>
+                            <span class="rotulo">Descrição</span>
+                            {% if sala.descricao %}
+                            <span class="valor">{{ sala.descricao }}</span>
+                            {% else %}
+                            <span class="valor text-muted fw-normal">Sem descrição</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="barra-acoes rodape-form">
+                <a href="{% url 'criar_reserva' %}?sala={{ sala.id }}" class="btn btn-primary">{% include "icones/calendario.html" %}Reservar esta sala</a>
+                {% if eh_operador %}
+                <a href="{% url 'editar_sala' sala.id %}" class="btn btn-warning">{% include "icones/editar.html" %}Editar</a>
+                <a href="{% url 'deletar_sala' sala.id %}" class="btn btn-danger">{% include "icones/lixeira.html" %}Deletar</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Próximas reservas -->
+        <div class="painel">
+            <div class="painel-titulo">{% include "icones/relogio.html" %} Próximas reservas</div>
+            {% if proximas %}
+            <ul class="proximas">
+                {% for reserva in proximas %}
+                <li>
+                    <a href="{% url 'detalhes_reserva' reserva.id %}" class="proxima">
+                        <span class="proxima-data">
+                            <strong>{{ reserva.data_inicio|date:"d/m/Y" }}</strong>
+                            <small>{{ reserva.data_inicio|date:"H:i" }} – {% if reserva.data_fim|date:"d/m/Y" != reserva.data_inicio|date:"d/m/Y" %}{{ reserva.data_fim|date:"d/m/Y H:i" }}{% else %}{{ reserva.data_fim|date:"H:i" }}{% endif %}</small>
+                        </span>
+                        <span class="proxima-quem">{% include "icones/usuario.html" %} {{ reserva.responsavel_exibicao }}</span>
+                        <span class="status status-{{ reserva.status }}">{{ reserva.get_status_display }}</span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="vazio py-4">
+                <div class="ico-vazio">{% include "icones/calendario.html" %}</div>
+                <h5>Nenhuma reserva marcada</h5>
+                <p class="mb-0">A sala está livre. Que tal reservar?</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recursos -->
+    <div class="col-lg-4">
+        <div class="painel">
+            <div class="painel-titulo">{% include "icones/recurso.html" %} Recursos ({{ recursos|length }})</div>
+            {% if recursos %}
+            <ul class="lista-recursos">
+                {% for recurso in recursos %}
+                <li class="info">
+                    <span class="ico-info">{% include "icones/check.html" %}</span>
+                    <div>
+                        <span class="valor">{{ recurso.nome }}</span>
+                        {% if recurso.descricao %}<small class="d-block text-muted">{{ recurso.descricao }}</small>{% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-muted mb-0">Esta sala não possui recursos cadastrados.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

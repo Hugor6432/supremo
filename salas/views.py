@@ -4,6 +4,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core.utils import org_atual, exige_operador
@@ -48,6 +49,20 @@ def lista_salas(request):
         'recurso_selecionado': recurso,
     }
     return render(request, 'salas/lista_salas.html', contexto)
+
+
+@login_required
+def detalhes_sala(request, id):
+    org = org_atual(request)
+    sala = get_object_or_404(Sala, id=id, organizacao=org)
+    # Próximas reservas que ocupam a sala (as canceladas não ocupam)
+    proximas = (
+        sala.reservas.filter(status__in=['confirmada', 'pendente'], data_fim__gte=timezone.now())
+        .select_related('criado_por')
+        .order_by('data_inicio')
+    )
+    contexto = {'sala': sala, 'recursos': sala.recursos.all(), 'proximas': proximas}
+    return render(request, 'salas/detalhes_sala.html', contexto)
 
 
 def _salva_recursos(formset, sala, org, usuario):
@@ -167,7 +182,12 @@ def criar_reserva(request):
                 messages.success(request, 'Reserva criada e confirmada!')
             return redirect('lista_reservas')
     else:
-        form = ReservaForm(org=org)
+        # "Reservar esta sala" já traz a sala escolhida, se ela for da organização
+        sala_id = request.GET.get('sala', '')
+        inicial = {}
+        if sala_id.isdigit() and Sala.objects.filter(id=sala_id, organizacao=org).exists():
+            inicial['sala'] = int(sala_id)
+        form = ReservaForm(org=org, initial=inicial)
     return render(request, 'salas/criar_reserva.html', {'form': form})
 
 
