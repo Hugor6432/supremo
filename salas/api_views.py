@@ -74,6 +74,7 @@ class ReservaListCreate(DaOrganizacaoMixin, generics.ListCreateAPIView):
         serializer.save(
             organizacao=org_atual(self.request),
             criado_por=self.request.user,
+            responsavel=self.request.user.username,
             status=Reserva(sala=sala).status_inicial(),
         )
 

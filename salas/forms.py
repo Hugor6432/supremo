@@ -31,11 +31,10 @@ class SalaForm(forms.ModelForm):
 class ReservaForm(forms.ModelForm):
     class Meta:
         model = Reserva
-        # Status e criado_por são definidos pelo sistema
-        fields = ['sala', 'responsavel', 'data_inicio', 'data_fim', 'descricao', 'recorrencia']
+        # Status, criado_por e responsavel são definidos pelo sistema
+        fields = ['sala', 'data_inicio', 'data_fim', 'descricao', 'recorrencia']
         widgets = {
             'sala': forms.Select(attrs={'class': 'form-control'}),
-            'responsavel': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Seu nome'}),
             'data_inicio': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
             'data_fim': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Motivo da reserva'}),

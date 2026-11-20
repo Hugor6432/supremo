@@ -199,9 +199,9 @@ class RecorrenciaAdmin(admin.ModelAdmin):
 
 @admin.register(Reserva)
 class ReservaAdmin(admin.ModelAdmin):
-    list_display = ('sala', 'organizacao', 'responsavel', 'criado_por', 'data_inicio', 'status', 'tem_conflito')
+    list_display = ('sala', 'organizacao', 'reservado_por', 'email_de_quem_reservou', 'data_inicio', 'status', 'tem_conflito')
     list_filter = ('organizacao', 'status', 'sala', 'data_inicio')
-    search_fields = ('responsavel', 'sala__nome')
+    search_fields = ('responsavel', 'sala__nome', 'criado_por__username', 'criado_por__email')
     date_hierarchy = 'data_inicio'
     fieldsets = (
         ('Informações Básicas', {'fields': ('sala', 'responsavel', 'descricao')}),
@@ -209,6 +209,18 @@ class ReservaAdmin(admin.ModelAdmin):
         ('Recorrência e Status', {'fields': ('recorrencia', 'status', 'criado_por')}),
     )
     readonly_fields = ('criado_por',)
+    list_select_related = ('sala', 'organizacao', 'criado_por')
+
+    @admin.display(description="Reservado por", ordering='criado_por__username')
+    def reservado_por(self, obj):
+        # Reservas antigas sem conta mostram o texto do campo responsavel
+        return obj.criado_por.username if obj.criado_por else obj.responsavel
+
+    @admin.display(description="E-mail", ordering='criado_por__email')
+    def email_de_quem_reservou(self, obj):
+        if obj.criado_por is None:
+            return "—"
+        return obj.criado_por.email or "sem e-mail"
     
     def save_model(self, request, obj, form, change):
         obj.organizacao = obj.sala.organizacao

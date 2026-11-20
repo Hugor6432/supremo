@@ -104,7 +104,7 @@ def _checa_dono(request, reserva):
 @login_required
 def lista_reservas(request):
     org = org_atual(request)
-    reservas = Reserva.objects.filter(organizacao=org).select_related('sala', 'recorrencia')
+    reservas = Reserva.objects.filter(organizacao=org).select_related('sala', 'recorrencia', 'criado_por')
     # Diz ao template quais botões cada reserva pode mostrar
     for reserva in reservas:
         reserva.pode_alterar_aqui = reserva.pode_alterar(request.user)
@@ -120,6 +120,7 @@ def criar_reserva(request):
             reserva = form.save(commit=False)
             reserva.organizacao = org
             reserva.criado_por = request.user
+            reserva.responsavel = request.user.username
             reserva.status = reserva.status_inicial()
             if reserva.tem_conflito():
                 messages.error(request, 'Conflito! Já existe uma reserva neste horário para esta sala.')

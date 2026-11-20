@@ -51,7 +51,7 @@ class Base(TestCase):
     def dados_form(self, sala, horas):
         inicio = timezone.now() + timedelta(hours=horas)
         return {
-            'sala': sala.id, 'responsavel': 'Fulano',
+            'sala': sala.id,
             'data_inicio': self.local(inicio),
             'data_fim': self.local(inicio + timedelta(hours=1)),
             'descricao': '', 'recorrencia': '',
@@ -165,7 +165,7 @@ class TelasReservasTest(Base):
         reserva = self.reserva(self.outro, 48)
         self.client.force_login(self.usuario)
         dados = {
-            'sala': self.sala.id, 'responsavel': 'Fulano',
+            'sala': self.sala.id,
             'data_inicio': self.local(reserva.data_inicio),
             'data_fim': self.local(reserva.data_fim),
             'descricao': '', 'recorrencia': '',
@@ -210,7 +210,7 @@ class ApiTest(Base):
     def dados_api(self, sala, horas):
         inicio = timezone.now() + timedelta(hours=horas)
         return {
-            'sala': sala.id, 'responsavel': 'Fulano',
+            'sala': sala.id,
             'data_inicio': inicio.isoformat(), 'data_fim': (inicio + timedelta(hours=1)).isoformat(),
         }
 
@@ -255,15 +255,15 @@ class ApiTest(Base):
         propria = self.reserva(self.usuario, 48)
         em_cima = self.reserva(self.usuario, 5)
         api = self.como(self.usuario)
-        self.assertEqual(api.patch(f'/api/reservas/{propria.id}/', {'responsavel': 'Novo'}).status_code, 200)
-        self.assertEqual(api.patch(f'/api/reservas/{em_cima.id}/', {'responsavel': 'Novo'}).status_code, 403)
+        self.assertEqual(api.patch(f'/api/reservas/{propria.id}/', {'descricao': 'Novo'}).status_code, 200)
+        self.assertEqual(api.patch(f'/api/reservas/{em_cima.id}/', {'descricao': 'Novo'}).status_code, 403)
         self.assertEqual(api.delete(f'/api/reservas/{propria.id}/').status_code, 403)
-        self.assertEqual(self.como(self.operador).patch(f'/api/reservas/{em_cima.id}/', {'responsavel': 'Op'}).status_code, 200)
+        self.assertEqual(self.como(self.operador).patch(f'/api/reservas/{em_cima.id}/', {'descricao': 'Op'}).status_code, 200)
         self.assertEqual(self.como(self.operador).delete(f'/api/reservas/{propria.id}/').status_code, 204)
 
     def test_horario_cancelado_livre_pela_api(self):
         reserva = self.reserva(self.outro, 48)
-        dados = {'sala': self.sala.id, 'responsavel': 'X',
+        dados = {'sala': self.sala.id,
                  'data_inicio': reserva.data_inicio.isoformat(), 'data_fim': reserva.data_fim.isoformat()}
         self.assertEqual(self.como(self.usuario).post('/api/reservas/', dados).status_code, 400)
         self.como(self.operador).post(f'/api/reservas/{reserva.id}/cancelar/')
@@ -454,7 +454,7 @@ class CadastroTest(TestCase):
         self.assertEqual(resp.status_code, 403)
         inicio = timezone.now() + timedelta(hours=48)
         resp = self.client.post(reverse('criar_reserva'), {
-            'sala': self.sala.id, 'responsavel': 'Novo',
+            'sala': self.sala.id,
             'data_inicio': Base.local(inicio), 'data_fim': Base.local(inicio + timedelta(hours=1)),
             'descricao': '', 'recorrencia': '',
         })
@@ -462,3 +462,68 @@ class CadastroTest(TestCase):
         reserva = Reserva.objects.get()
         self.assertEqual(reserva.criado_por.username, 'novo')
         self.assertEqual(reserva.status, 'confirmada')
+
+
+# ===== RESPONSÁVEL VEM DA CONTA =====
+
+class ResponsavelDaContaTest(Base):
+    def setUp(self):
+        self.joao = User.objects.create_user('joao', email='joao@email.com', password='x')
+        Perfil.objects.create(usuario=self.joao, organizacao=self.org_a, papel=Perfil.USUARIO)
+
+    def test_reserva_criada_mostra_usuario_e_email(self):
+        self.client.force_login(self.joao)
+        dados = self.dados_form(self.sala, 48) | {'responsavel': 'Nome forjado'}
+        self.assertEqual(self.client.post(reverse('criar_reserva'), dados).status_code, 302)
+        reserva = Reserva.objects.get()
+        # Preenchido sozinho com o nome de usuário, ignorando o valor enviado
+        self.assertEqual(reserva.responsavel, 'joao')
+        self.assertEqual(reserva.criado_por, self.joao)
+        esperado = 'joao · joao@email.com'
+        self.assertContains(self.client.get(reverse('lista_reservas')), esperado)
+        self.assertContains(self.client.get(reverse('detalhes_reserva', args=[reserva.id])), esperado)
+        self.assertContains(self.client.get(reverse('cancelar_reserva', args=[reserva.id])), esperado)
+        self.client.force_login(self.operador)
+        self.assertContains(self.client.get(reverse('deletar_reserva', args=[reserva.id])), esperado)
+
+    def test_formulario_nao_tem_mais_o_campo_responsavel(self):
+        self.client.force_login(self.joao)
+        self.assertNotContains(self.client.get(reverse('criar_reserva')), 'name="responsavel"')
+
+    def test_sem_email_e_reserva_antiga(self):
+        reserva = self.reserva(self.usuario, 48)  # usuário sem e-mail
+        self.assertEqual(reserva.responsavel_exibicao, 'usuario · sem e-mail')
+        antiga = self.reserva(self.usuario, 72)
+        Reserva.objects.filter(pk=antiga.pk).update(criado_por=None, responsavel='Texto antigo')
+        antiga.refresh_from_db()
+        self.client.force_login(self.operador)
+        resp = self.client.get(reverse('lista_reservas'))
+        self.assertContains(resp, 'usuario · sem e-mail')
+        self.assertContains(resp, 'Texto antigo')
+
+    def test_api_preenche_responsavel_e_devolve_conta(self):
+        api = APIClient()
+        api.force_authenticate(self.joao)
+        inicio = timezone.now() + timedelta(hours=48)
+        resp = api.post('/api/reservas/', {
+            'sala': self.sala.id, 'responsavel': 'Nome forjado',
+            'data_inicio': inicio.isoformat(), 'data_fim': (inicio + timedelta(hours=1)).isoformat(),
+        })
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.data['responsavel'], 'joao')
+        self.assertEqual(resp.data['criado_por_usuario'], 'joao')
+        self.assertEqual(resp.data['criado_por_email'], 'joao@email.com')
+        detalhe = api.get(f"/api/reservas/{resp.data['id']}/").data
+        self.assertEqual((detalhe['criado_por_usuario'], detalhe['criado_por_email']), ('joao', 'joao@email.com'))
+
+    def test_admin_mostra_colunas_e_busca_por_usuario_e_email(self):
+        self.reserva(self.joao, 48)
+        self.reserva(self.outro, 72)
+        chefe = User.objects.create_superuser('chefe', password='x')
+        self.client.force_login(chefe)
+        resp = self.client.get('/admin/salas/reserva/')
+        self.assertContains(resp, 'Reservado por')
+        self.assertContains(resp, 'joao@email.com')
+        for termo in ['joao', 'joao@email.com']:
+            resp = self.client.get('/admin/salas/reserva/', {'q': termo})
+            self.assertEqual(resp.context['cl'].result_count, 1, termo)

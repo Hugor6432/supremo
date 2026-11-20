@@ -71,13 +71,22 @@ class RecorrenciaSerializer(serializers.ModelSerializer):
 
 class ReservaSerializer(FiltraPorOrganizacaoMixin, serializers.ModelSerializer):
     campos_da_org = {'sala': Sala, 'recorrencia': Recorrencia}
+    criado_por_usuario = serializers.SerializerMethodField()
+    criado_por_email = serializers.SerializerMethodField()
 
     class Meta:
         model = Reserva
         fields = ['id', 'sala', 'responsavel', 'data_inicio', 'data_fim',
-                  'descricao', 'recorrencia', 'status', 'criado_por']
-        # Status muda pelas ações cancelar/aprovar/recusar
-        read_only_fields = ['status', 'criado_por']
+                  'descricao', 'recorrencia', 'status', 'criado_por',
+                  'criado_por_usuario', 'criado_por_email']
+        # Status muda pelas ações cancelar/aprovar/recusar; responsável vem da conta
+        read_only_fields = ['status', 'criado_por', 'responsavel']
+
+    def get_criado_por_usuario(self, obj):
+        return obj.criado_por.username if obj.criado_por else None
+
+    def get_criado_por_email(self, obj):
+        return obj.criado_por.email if obj.criado_por else None
 
     def validate(self, data):
         # No PATCH, usa os valores atuais da reserva para os campos que não vieram

@@ -86,6 +86,13 @@ class Reserva(DaOrganizacao):
     def __str__(self):
         return f"{self.sala.nome} - {self.data_inicio.strftime('%d/%m/%Y %H:%M')}"
 
+    @property
+    def responsavel_exibicao(self):
+        # Conta de quem reservou; reservas antigas mostram o texto do campo responsavel
+        if self.criado_por_id is None:
+            return self.responsavel
+        return f"{self.criado_por.username} · {self.criado_por.email or 'sem e-mail'}"
+
     def status_inicial(self):
         # Sala com aprovação começa pendente; as outras já nascem confirmadas
         return 'pendente' if self.sala.exige_aprovacao else 'confirmada'
