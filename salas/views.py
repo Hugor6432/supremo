@@ -1,9 +1,11 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
+from django.views.decorators.http import require_POST
 
-from core.utils import org_atual
+from core.utils import org_atual, exige_operador
 from .models import Sala, Recurso, Reserva
 from .forms import ReservaForm, SalaForm
 
@@ -90,10 +92,19 @@ def deletar_sala(request, id):
 
 # ===== VIEWS DE RESERVAS =====
 
+def _checa_dono(request, reserva):
+    # 403 para quem tenta mexer em reserva de outra pessoa
+    if not reserva.pode_mexer(request.user):
+        raise PermissionDenied(reserva.MSG_NAO_E_DONO)
+
+
 @login_required
 def lista_reservas(request):
     org = org_atual(request)
     reservas = Reserva.objects.filter(organizacao=org).select_related('sala', 'recorrencia')
+    # Diz ao template quais botões cada reserva pode mostrar
+    for reserva in reservas:
+        reserva.pode_alterar_aqui = reserva.pode_alterar(request.user)
     return render(request, 'salas/lista_reservas.html', {'reservas': reservas})
 
 
@@ -105,11 +116,16 @@ def criar_reserva(request):
         if form.is_valid():
             reserva = form.save(commit=False)
             reserva.organizacao = org
+            reserva.criado_por = request.user
+            reserva.status = reserva.status_inicial()
             if reserva.tem_conflito():
                 messages.error(request, 'Conflito! Já existe uma reserva neste horário para esta sala.')
                 return render(request, 'salas/criar_reserva.html', {'form': form})
             reserva.save()
-            messages.success(request, 'Reserva criada com sucesso!')
+            if reserva.status == 'pendente':
+                messages.success(request, 'Reserva criada! Ela aguarda a aprovação de um operador.')
+            else:
+                messages.success(request, 'Reserva criada e confirmada!')
             return redirect('lista_reservas')
     else:
         form = ReservaForm(org=org)
@@ -120,24 +136,76 @@ def criar_reserva(request):
 def editar_reserva(request, id):
     org = org_atual(request)
     reserva = get_object_or_404(Reserva, id=id, organizacao=org)
+    _checa_dono(request, reserva)
+    # Checa antes do form, que altera a instância ao validar
+    bloqueada = not reserva.pode_alterar(request.user)
     if request.method == 'POST':
         form = ReservaForm(request.POST, instance=reserva, org=org)
         if form.is_valid():
-            reserva_atualizada = form.save(commit=False)
-            if reserva_atualizada.tem_conflito():
-                messages.error(request, 'Conflito! Já existe uma reserva neste horário para esta sala.')
-                return render(request, 'salas/editar_reserva.html', {'form': form, 'reserva': reserva})
-            reserva_atualizada.save()
-            messages.success(request, 'Reserva atualizada com sucesso!')
-            return redirect('lista_reservas')
+            if bloqueada:
+                form.add_error(None, Reserva.MSG_24H)
+            else:
+                reserva_atualizada = form.save(commit=False)
+                if reserva_atualizada.tem_conflito():
+                    messages.error(request, 'Conflito! Já existe uma reserva neste horário para esta sala.')
+                    return render(request, 'salas/editar_reserva.html', {'form': form, 'reserva': reserva})
+                reserva_atualizada.save()
+                messages.success(request, 'Reserva atualizada com sucesso!')
+                return redirect('lista_reservas')
     else:
         form = ReservaForm(instance=reserva, org=org)
-    return render(request, 'salas/editar_reserva.html', {'form': form, 'reserva': reserva})
+    contexto = {'form': form, 'reserva': reserva, 'bloqueada': bloqueada}
+    return render(request, 'salas/editar_reserva.html', contexto)
+
+
+@login_required
+def cancelar_reserva(request, id):
+    org = org_atual(request)
+    reserva = get_object_or_404(Reserva, id=id, organizacao=org)
+    _checa_dono(request, reserva)
+    erro = None
+    if reserva.status == 'cancelada':
+        erro = 'Esta reserva já está cancelada.'
+    elif not reserva.pode_alterar(request.user):
+        erro = Reserva.MSG_24H
+    if request.method == 'POST' and not erro:
+        reserva.status = 'cancelada'
+        reserva.save(update_fields=['status'])
+        messages.success(request, 'Reserva cancelada. O horário ficou livre.')
+        return redirect('lista_reservas')
+    return render(request, 'salas/cancelar_reserva.html', {'reserva': reserva, 'erro': erro})
+
+
+def _decide_pendente(request, id, novo_status, texto):
+    # Aprovar e recusar: só operador, só reserva pendente
+    org = org_atual(request)
+    exige_operador(request)
+    reserva = get_object_or_404(Reserva, id=id, organizacao=org)
+    if reserva.status != 'pendente':
+        messages.error(request, 'Só reservas pendentes podem ser aprovadas ou recusadas.')
+    else:
+        reserva.status = novo_status
+        reserva.save(update_fields=['status'])
+        messages.success(request, texto)
+    return redirect('lista_reservas')
+
+
+@login_required
+@require_POST
+def aprovar_reserva(request, id):
+    return _decide_pendente(request, id, 'confirmada', 'Reserva aprovada e confirmada!')
+
+
+@login_required
+@require_POST
+def recusar_reserva(request, id):
+    return _decide_pendente(request, id, 'cancelada', 'Reserva recusada.')
 
 
 @login_required
 def deletar_reserva(request, id):
     org = org_atual(request)
+    exige_operador(request)
     reserva = get_object_or_404(Reserva, id=id, organizacao=org)
     if request.method == 'POST':
         reserva.delete()
@@ -150,4 +218,5 @@ def deletar_reserva(request, id):
 def detalhes_reserva(request, id):
     org = org_atual(request)
     reserva = get_object_or_404(Reserva, id=id, organizacao=org)
-    return render(request, 'salas/detalhes_reserva.html', {'reserva': reserva})
+    contexto = {'reserva': reserva, 'pode_alterar': reserva.pode_alterar(request.user)}
+    return render(request, 'salas/detalhes_reserva.html', contexto)

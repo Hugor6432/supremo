@@ -5,11 +5,12 @@ from .models import Sala, Recorrencia, Reserva
 class SalaForm(forms.ModelForm):
     class Meta:
         model = Sala
-        fields = ['nome', 'capacidade', 'descricao']
+        fields = ['nome', 'capacidade', 'descricao', 'exige_aprovacao']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome da sala'}),
             'capacidade': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Capacidade'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descrição'}),
+            'exige_aprovacao': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
     def __init__(self, *args, org=None, **kwargs):
@@ -30,7 +31,8 @@ class SalaForm(forms.ModelForm):
 class ReservaForm(forms.ModelForm):
     class Meta:
         model = Reserva
-        fields = ['sala', 'responsavel', 'data_inicio', 'data_fim', 'descricao', 'recorrencia', 'status']
+        # Status e criado_por são definidos pelo sistema
+        fields = ['sala', 'responsavel', 'data_inicio', 'data_fim', 'descricao', 'recorrencia']
         widgets = {
             'sala': forms.Select(attrs={'class': 'form-control'}),
             'responsavel': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Seu nome'}),
@@ -38,7 +40,6 @@ class ReservaForm(forms.ModelForm):
             'data_fim': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Motivo da reserva'}),
             'recorrencia': forms.Select(attrs={'class': 'form-control'}),
-            'status': forms.Select(attrs={'class': 'form-control'}),
         }
 
     def __init__(self, *args, org=None, **kwargs):

@@ -103,7 +103,7 @@ class RecursoInline(admin.TabularInline):
 @admin.register(Sala)
 class SalaAdmin(admin.ModelAdmin):
     inlines = [RecursoInline]
-    list_display = ('nome', 'organizacao', 'capacidade', 'total_recursos')
+    list_display = ('nome', 'organizacao', 'capacidade', 'exige_aprovacao', 'total_recursos')
     list_filter = ('organizacao',)
     search_fields = ('nome',)
     
@@ -141,18 +141,21 @@ class RecorrenciaAdmin(admin.ModelAdmin):
 
 @admin.register(Reserva)
 class ReservaAdmin(admin.ModelAdmin):
-    list_display = ('sala', 'organizacao', 'responsavel', 'data_inicio', 'status', 'tem_conflito')
+    list_display = ('sala', 'organizacao', 'responsavel', 'criado_por', 'data_inicio', 'status', 'tem_conflito')
     list_filter = ('organizacao', 'status', 'sala', 'data_inicio')
     search_fields = ('responsavel', 'sala__nome')
     date_hierarchy = 'data_inicio'
     fieldsets = (
         ('Informações Básicas', {'fields': ('sala', 'responsavel', 'descricao')}),
         ('Datas e Horários', {'fields': ('data_inicio', 'data_fim')}),
-        ('Recorrência e Status', {'fields': ('recorrencia', 'status')}),
+        ('Recorrência e Status', {'fields': ('recorrencia', 'status', 'criado_por')}),
     )
+    readonly_fields = ('criado_por',)
     
     def save_model(self, request, obj, form, change):
         obj.organizacao = obj.sala.organizacao
+        if not change:
+            obj.criado_por = request.user
         if obj.tem_conflito():
             raise ValueError('Existe conflito com outra reserva neste horário!')
         super().save_model(request, obj, form, change)

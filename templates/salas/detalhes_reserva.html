@@ -115,8 +115,25 @@
         
         <!-- Botões de Ação -->
         <div class="d-grid gap-2 d-md-flex justify-content-md-start mb-5">
+            {% if eh_operador and reserva.status == 'pendente' %}
+            <form method="post" action="{% url 'aprovar_reserva' reserva.id %}" class="d-grid">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-lg btn-success">✅ Aprovar</button>
+            </form>
+            <form method="post" action="{% url 'recusar_reserva' reserva.id %}" class="d-grid">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-lg btn-outline-danger">⛔ Recusar</button>
+            </form>
+            {% endif %}
+            {% if pode_alterar %}
             <a href="{% url 'editar_reserva' reserva.id %}" class="btn btn-warning btn-lg">✏️ Editar Reserva</a>
+            {% if reserva.status != 'cancelada' %}
+            <a href="{% url 'cancelar_reserva' reserva.id %}" class="btn btn-outline-secondary btn-lg">✖️ Cancelar Reserva</a>
+            {% endif %}
+            {% endif %}
+            {% if eh_operador %}
             <a href="{% url 'deletar_reserva' reserva.id %}" class="btn btn-danger btn-lg">🗑️ Deletar Reserva</a>
+            {% endif %}
         </div>
     </div>
 </div>

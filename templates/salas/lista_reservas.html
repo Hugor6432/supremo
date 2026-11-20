@@ -73,8 +73,25 @@
                 <!-- Ações -->
                 <div class="d-grid gap-2">
                     <a href="{% url 'detalhes_reserva' reserva.id %}" class="btn btn-sm btn-info">👁️ Ver Detalhes</a>
+                    {% if eh_operador and reserva.status == 'pendente' %}
+                    <form method="post" action="{% url 'aprovar_reserva' reserva.id %}" class="d-grid">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-success">✅ Aprovar</button>
+                    </form>
+                    <form method="post" action="{% url 'recusar_reserva' reserva.id %}" class="d-grid">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger">⛔ Recusar</button>
+                    </form>
+                    {% endif %}
+                    {% if reserva.pode_alterar_aqui %}
                     <a href="{% url 'editar_reserva' reserva.id %}" class="btn btn-sm btn-warning">✏️ Editar</a>
+                    {% if reserva.status != 'cancelada' %}
+                    <a href="{% url 'cancelar_reserva' reserva.id %}" class="btn btn-sm btn-outline-secondary">✖️ Cancelar reserva</a>
+                    {% endif %}
+                    {% endif %}
+                    {% if eh_operador %}
                     <a href="{% url 'deletar_reserva' reserva.id %}" class="btn btn-sm btn-danger">🗑️ Deletar</a>
+                    {% endif %}
                 </div>
             </div>
         </div>

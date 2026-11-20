@@ -27,6 +27,11 @@
                         {{ form.descricao }}
                         {% if form.descricao.errors %}<div class="alert alert-danger mt-2">{{ form.descricao.errors }}</div>{% endif %}
                     </div>
+                    <div class="form-check mb-3">
+                        {{ form.exige_aprovacao }}
+                        <label for="{{ form.exige_aprovacao.id_for_label }}" class="form-check-label">Exige aprovação</label>
+                        <div class="form-text">{{ form.exige_aprovacao.help_text }}</div>
+                    </div>
                 </div>
             </div>
             

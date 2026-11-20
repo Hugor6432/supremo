@@ -1,12 +1,21 @@
+from datetime import timedelta
+
+from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 from core.models import DaOrganizacao
+from core.utils import eh_operador_usuario
 
 
 class Sala(DaOrganizacao):
     nome = models.CharField(max_length=100)
     capacidade = models.IntegerField()
     descricao = models.TextField(blank=True, null=True)
+    exige_aprovacao = models.BooleanField(
+        default=False,
+        help_text="Reservas novas ficam pendentes até um operador aprovar.",
+    )
     
     def __str__(self):
         return f"{self.nome} ({self.capacidade} pessoas)"
@@ -63,9 +72,39 @@ class Reserva(DaOrganizacao):
     descricao = models.TextField(blank=True, null=True)
     recorrencia = models.ForeignKey(Recorrencia, on_delete=models.SET_NULL, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUSOS, default='pendente')
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reservas_criadas',
+    )
+
+    MSG_24H = "Só é possível editar ou cancelar a reserva com mais de 24 horas de antecedência."
+    MSG_NAO_E_DONO = "Você só pode editar ou cancelar as reservas que você criou."
     
     def __str__(self):
         return f"{self.sala.nome} - {self.data_inicio.strftime('%d/%m/%Y %H:%M')}"
+
+    def status_inicial(self):
+        # Sala com aprovação começa pendente; as outras já nascem confirmadas
+        return 'pendente' if self.sala.exige_aprovacao else 'confirmada'
+
+    def faltam_mais_de_24h(self):
+        return self.data_inicio - timezone.now() > timedelta(hours=24)
+
+    def eh_dono(self, user):
+        return self.criado_por_id is not None and self.criado_por_id == user.id
+
+    def pode_mexer(self, user):
+        # Operador mexe em qualquer reserva; usuário só nas próprias
+        return eh_operador_usuario(user) or self.eh_dono(user)
+
+    def pode_alterar(self, user):
+        # Editar e cancelar: usuário precisa de mais de 24h de antecedência
+        if eh_operador_usuario(user):
+            return True
+        return self.eh_dono(user) and self.faltam_mais_de_24h()
     
     def tem_conflito(self):
         conflitantes = Reserva.objects.filter(
