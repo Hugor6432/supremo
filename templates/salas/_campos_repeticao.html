@@ -1,0 +1,40 @@
+<div class="opcao-destaque d-block mt-4">
+    <div class="secao-rotulo mb-3">{% include "icones/repetir.html" %} Repetição</div>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label for="{{ form.repetir.id_for_label }}" class="form-label">Repetir</label>
+            {{ form.repetir }}
+            {% if form.repetir.errors %}<div class="erro-campo">{{ form.repetir.errors }}</div>{% endif %}
+        </div>
+        {% with repete=form.repetir.value %}
+        <div class="col-md-3 campo-repeticao{% if not repete or repete == 'nao' %} d-none{% endif %}">
+            <label for="{{ form.a_cada.id_for_label }}" class="form-label">A cada</label>
+            {{ form.a_cada }}
+            {% if form.a_cada.errors %}<div class="erro-campo">{{ form.a_cada.errors }}</div>{% endif %}
+        </div>
+        <div class="col-md-5 campo-repeticao{% if not repete or repete == 'nao' %} d-none{% endif %}">
+            <label for="{{ form.ate.id_for_label }}" class="form-label">Até</label>
+            {{ form.ate }}
+            {% if form.ate.errors %}<div class="erro-campo">{{ form.ate.errors }}</div>{% endif %}
+        </div>
+        {% endwith %}
+    </div>
+    <div class="form-text campo-repeticao{% if not form.repetir.value or form.repetir.value == 'nao' %} d-none{% endif %}">
+        Uma reserva é criada para cada data, com o mesmo horário. Se alguma data estiver ocupada, nenhuma é criada.
+        Máximo de 1 ano e 100 reservas.
+    </div>
+</div>
+<script>
+    (function () {
+        // "A cada" e "Até" só aparecem quando a reserva se repete
+        var repetir = document.getElementById('{{ form.repetir.id_for_label }}');
+        function atualiza() {
+            var repete = repetir.value !== 'nao';
+            document.querySelectorAll('.campo-repeticao').forEach(function (el) {
+                el.classList.toggle('d-none', !repete);
+            });
+        }
+        repetir.addEventListener('change', atualiza);
+        atualiza();
+    })();
+</script>

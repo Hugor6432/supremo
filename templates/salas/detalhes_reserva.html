@@ -47,7 +47,7 @@
                             <div>
                                 <span class="rotulo">Recorrência</span>
                                 {% if reserva.recorrencia %}
-                                    <span class="valor grande">{{ reserva.recorrencia.get_frequencia_display }} - A cada {{ reserva.recorrencia.intervalo }}</span>
+                                    <span class="tag tag-serie mt-1">{% include "icones/repetir.html" %} {{ reserva.recorrencia.rotulo }}</span>
                                 {% else %}
                                     <span class="valor text-muted fw-normal">Sem recorrência (reserva única)</span>
                                 {% endif %}

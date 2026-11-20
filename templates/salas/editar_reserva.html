@@ -6,6 +6,9 @@
 </div>
 <div class="row">
     <div class="col-lg-9 col-xl-8">
+        {% if reserva.recorrencia %}
+        <div class="alert alert-info">{% include "icones/repetir.html" %}<div>Esta reserva faz parte de uma série ({{ reserva.recorrencia.resumo }}). A edição vale só para esta data.</div></div>
+        {% endif %}
         {% if bloqueada and not form.non_field_errors %}
         <div class="alert alert-warning">{% include "icones/alerta.html" %}<div>{{ reserva.MSG_24H }}</div></div>
         {% endif %}

@@ -14,14 +14,26 @@
         {% include "icones/info.html" %}
         <div>A reserva continua no histórico como cancelada e o horário fica livre.</div>
     </div>
-    <form method="post">
-        {% csrf_token %}
-        <div class="rodape-form">
-            {% if not erro %}
+    {% if reserva.recorrencia %}
+    <div class="alert alert-info mt-3 mb-0">
+        {% include "icones/repetir.html" %}
+        <div>Esta reserva faz parte de uma série ({{ reserva.recorrencia.resumo }}). Você pode cancelar só esta data ou esta e as próximas.</div>
+    </div>
+    {% endif %}
+    <div class="barra-acoes rodape-form">
+        {% if not erro %}
+        <form method="post">
+            {% csrf_token %}
             <button type="submit" class="btn btn-danger">{% include "icones/fechar.html" %}Sim, cancelar reserva</button>
-            {% endif %}
-            <a href="{% url 'lista_reservas' %}" class="btn btn-secondary">{% include "icones/voltar.html" %}Voltar</a>
-        </div>
-    </form>
+        </form>
+        {% endif %}
+        {% if reserva.recorrencia %}
+        <form method="post" action="{% url 'cancelar_serie' reserva.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger">{% include "icones/repetir.html" %}Cancelar esta e as próximas da série</button>
+        </form>
+        {% endif %}
+        <a href="{% url 'lista_reservas' %}" class="btn btn-secondary">{% include "icones/voltar.html" %}Voltar</a>
+    </div>
 </div>
 {% endblock %}

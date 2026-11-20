@@ -1,3 +1,4 @@
+import calendar
 from datetime import timedelta
 
 from django.contrib.auth.models import User
@@ -894,3 +895,216 @@ class DetalhesSalaTest(Base):
             self.assertContains(resp, reverse('deletar_sala', args=[sala.id]))
         self.client.force_login(self.usuario)
         self.assertContains(self.client.get(reverse('lista_salas')), reverse('detalhes_sala', args=[self.sala.id]))
+
+
+# ===== RESERVAS RECORRENTES =====
+
+class RecorrenciaTest(Base):
+    @staticmethod
+    def inicio(dias=2, hora=10):
+        local = timezone.localtime(timezone.now()) + timedelta(days=dias)
+        return local.replace(hour=hora, minute=0, second=0, microsecond=0)
+
+    @staticmethod
+    def dados_serie(sala, inicio, repetir='semanal', a_cada=1, ate=None, horas=1):
+        formato = '%Y-%m-%dT%H:%M'
+        return {
+            'sala': sala.id, 'descricao': 'Aula',
+            'data_inicio': inicio.strftime(formato),
+            'data_fim': (inicio + timedelta(hours=horas)).strftime(formato),
+            'repetir': repetir, 'a_cada': a_cada, 'ate': ate.isoformat() if ate else '',
+        }
+
+    def cria_serie(self, user, sala=None, inicio=None, semanas=4, **extra):
+        inicio = inicio or self.inicio()
+        ate = (inicio + timedelta(weeks=semanas - 1)).date()
+        self.client.force_login(user)
+        return self.client.post(reverse('criar_reserva'), self.dados_serie(sala or self.sala, inicio, ate=ate, **extra),
+                                follow=True)
+
+    def test_serie_semanal_de_4_semanas(self):
+        inicio = self.inicio()
+        resp = self.cria_serie(self.usuario, inicio=inicio)
+        reservas = list(Reserva.objects.order_by('data_inicio'))
+        self.assertEqual(len(reservas), 4)
+        serie = reservas[0].recorrencia
+        self.assertIsNotNone(serie)
+        self.assertEqual((serie.frequencia, serie.intervalo, serie.organizacao), ('semanal', 1, self.org_a))
+        for n, reserva in enumerate(reservas):
+            self.assertEqual(reserva.recorrencia, serie)
+            self.assertEqual(timezone.localtime(reserva.data_inicio), inicio + timedelta(weeks=n))
+            self.assertEqual(reserva.data_fim - reserva.data_inicio, timedelta(hours=1))
+            self.assertEqual((reserva.sala, reserva.criado_por, reserva.status), (self.sala, self.usuario, 'confirmada'))
+        primeira, ultima = inicio.strftime('%d/%m'), (inicio + timedelta(weeks=3)).strftime('%d/%m')
+        self.assertContains(resp, f'Série criada: 4 reservas de {primeira} a {ultima}')
+        # Etiqueta na lista e nos detalhes
+        rotulo = f"Recorrente (semanal, a cada 1, até {serie.data_fim.strftime('%d/%m')})"
+        self.assertContains(self.client.get(reverse('lista_reservas')), rotulo)
+        self.assertContains(self.client.get(reverse('detalhes_reserva', args=[reservas[2].id])), rotulo)
+        # Histórico
+        registro = RegistroAtividade.objects.get(tipo_objeto='recorrência')
+        self.assertEqual((registro.acao, registro.usuario, registro.objeto_id), ('criou', self.usuario, serie.id))
+        self.assertIn('criou uma série de 4 reservas da Sala 1', registro.descricao)
+
+    def test_sala_com_aprovacao_cria_serie_pendente(self):
+        resp = self.cria_serie(self.usuario, sala=self.sala_aprov, semanas=3)
+        self.assertEqual(set(Reserva.objects.values_list('status', flat=True)), {'pendente'})
+        self.assertContains(resp, 'aguardam a aprovação')
+
+    def test_a_cada_2_semanas_e_mensal_no_fim_do_mes(self):
+        inicio = self.inicio()
+        self.client.force_login(self.usuario)
+        self.client.post(reverse('criar_reserva'),
+                         self.dados_serie(self.sala, inicio, a_cada=2, ate=(inicio + timedelta(weeks=5)).date()))
+        datas = [timezone.localtime(r.data_inicio) for r in Reserva.objects.order_by('data_inicio')]
+        self.assertEqual(datas, [inicio, inicio + timedelta(weeks=2), inicio + timedelta(weeks=4)])
+        Reserva.objects.all().delete()
+        # 31/01 do ano que vem vira 28/02 (ou 29), 31/03, 30/04
+        ano = timezone.localtime(timezone.now()).year + 1
+        jan = timezone.make_aware(timezone.datetime(ano, 1, 31, 9, 0))
+        self.client.post(reverse('criar_reserva'),
+                         self.dados_serie(self.sala, timezone.localtime(jan), repetir='mensal',
+                                          ate=timezone.datetime(ano, 4, 30).date()))
+        dias = [timezone.localtime(r.data_inicio).strftime('%d/%m') for r in Reserva.objects.order_by('data_inicio')]
+        fim_fev = calendar.monthrange(ano, 2)[1]
+        self.assertEqual(dias, ['31/01', f'{fim_fev}/02', '31/03', '30/04'])
+
+    def test_conflito_em_uma_data_bloqueia_a_serie(self):
+        inicio = self.inicio()
+        ocupada = inicio + timedelta(weeks=2)
+        Reserva.objects.create(organizacao=self.org_a, sala=self.sala, responsavel='x', criado_por=self.outro,
+                               data_inicio=ocupada, data_fim=ocupada + timedelta(hours=1), status='confirmada')
+        resp = self.cria_serie(self.usuario, inicio=inicio)
+        self.assertEqual(Reserva.objects.count(), 1)
+        self.assertFalse(Reserva.objects.filter(recorrencia__isnull=False).exists())
+        self.assertContains(resp, 'Conflito! Estas datas já estão ocupadas nesta sala')
+        self.assertContains(resp, ocupada.strftime('%d/%m/%Y %H:%M'))
+        self.assertFalse(RegistroAtividade.objects.filter(tipo_objeto='recorrência').exists())
+
+    def test_validacoes_do_ate(self):
+        inicio = self.inicio(dias=10)
+        self.client.force_login(self.usuario)
+        casos = [
+            ((inicio - timedelta(days=1)).date(), 'não pode ser antes do início'),
+            (None, 'Informe até quando'),
+            ((inicio + timedelta(days=400)).date(), 'no máximo 1 ano'),
+        ]
+        for ate, mensagem in casos:
+            resp = self.client.post(reverse('criar_reserva'), self.dados_serie(self.sala, inicio, ate=ate))
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn(mensagem, str(resp.context['form'].errors.get('ate')))
+        # Todo dia por quase 1 ano passa de 100 reservas
+        resp = self.client.post(reverse('criar_reserva'),
+                                self.dados_serie(self.sala, inicio, repetir='diaria', ate=(inicio + timedelta(days=200)).date()))
+        self.assertContains(resp, 'passaria de 100 reservas')
+        self.assertFalse(Reserva.objects.exists())
+
+    def test_nao_repetir_cria_uma_so(self):
+        self.client.force_login(self.usuario)
+        dados = self.dados_serie(self.sala, self.inicio(), repetir='nao', ate=(self.inicio() + timedelta(weeks=3)).date())
+        self.assertEqual(self.client.post(reverse('criar_reserva'), dados).status_code, 302)
+        self.assertEqual(Reserva.objects.count(), 1)
+        self.assertIsNone(Reserva.objects.get().recorrencia)
+
+    def test_datas_no_passado_nao_sao_criadas(self):
+        inicio = self.inicio(dias=-3)
+        self.cria_serie(self.usuario, inicio=inicio, semanas=4)
+        datas = [timezone.localtime(r.data_inicio) for r in Reserva.objects.order_by('data_inicio')]
+        self.assertEqual(datas, [inicio + timedelta(weeks=n) for n in (1, 2, 3)])
+
+    def test_cancelar_esta_e_as_proximas_respeita_24h(self):
+        perto = timezone.localtime(timezone.now() + timedelta(hours=5)).replace(minute=0, second=0, microsecond=0)
+        self.cria_serie(self.usuario, inicio=perto)
+        primeira = Reserva.objects.order_by('data_inicio').first()
+        resp = self.client.post(reverse('cancelar_serie', args=[primeira.id]), follow=True)
+        status = list(Reserva.objects.order_by('data_inicio').values_list('status', flat=True))
+        self.assertEqual(status, ['confirmada', 'cancelada', 'cancelada', 'cancelada'])
+        self.assertContains(resp, '3 reserva(s) da série cancelada(s). 1 ficaram ativas')
+        registro = RegistroAtividade.objects.get(tipo_objeto='recorrência', acao='cancelou')
+        self.assertIn('cancelou 3 reservas da série da Sala 1', registro.descricao)
+
+    def test_cancelar_a_partir_do_meio_nao_mexe_nas_anteriores(self):
+        perto = timezone.localtime(timezone.now() + timedelta(hours=5)).replace(minute=0, second=0, microsecond=0)
+        self.cria_serie(self.usuario, inicio=perto)
+        reservas = list(Reserva.objects.order_by('data_inicio'))
+        # Operador cancela a partir da terceira; a primeira (menos de 24h) e a segunda ficam
+        self.client.force_login(self.operador)
+        self.client.post(reverse('cancelar_serie', args=[reservas[2].id]))
+        status = list(Reserva.objects.order_by('data_inicio').values_list('status', flat=True))
+        self.assertEqual(status, ['confirmada', 'confirmada', 'cancelada', 'cancelada'])
+        # Operador pode cancelar mesmo com menos de 24h
+        self.client.post(reverse('cancelar_serie', args=[reservas[0].id]))
+        self.assertEqual(set(Reserva.objects.values_list('status', flat=True)), {'cancelada'})
+
+    def test_cada_reserva_da_serie_cancela_sozinha_e_edita_so_ela(self):
+        self.cria_serie(self.usuario)
+        reservas = list(Reserva.objects.order_by('data_inicio'))
+        self.client.post(reverse('cancelar_reserva', args=[reservas[1].id]))
+        status = list(Reserva.objects.order_by('data_inicio').values_list('status', flat=True))
+        self.assertEqual(status, ['confirmada', 'cancelada', 'confirmada', 'confirmada'])
+        # Edição: sem campos de repetição e a recorrência não muda
+        form = self.client.get(reverse('editar_reserva', args=[reservas[3].id])).context['form']
+        self.assertNotIn('repetir', form.fields)
+        nova = reservas[3].data_inicio + timedelta(hours=2)
+        dados = {'sala': self.sala.id, 'descricao': 'Mudou', 'data_inicio': self.local(nova),
+                 'data_fim': self.local(nova + timedelta(hours=1))}
+        self.client.post(reverse('editar_reserva', args=[reservas[3].id]), dados)
+        reservas[3].refresh_from_db()
+        self.assertEqual(reservas[3].recorrencia, reservas[0].recorrencia)
+        self.assertEqual(reservas[3].descricao, 'Mudou')
+        self.assertEqual(Reserva.objects.filter(descricao='Mudou').count(), 1)
+
+    def test_outra_pessoa_e_outra_organizacao(self):
+        self.cria_serie(self.usuario)
+        primeira = Reserva.objects.order_by('data_inicio').first()
+        self.client.force_login(self.outro)
+        self.assertEqual(self.client.post(reverse('cancelar_serie', args=[primeira.id])).status_code, 403)
+        self.client.force_login(self.usuario_b)
+        self.assertEqual(self.client.post(reverse('cancelar_serie', args=[primeira.id])).status_code, 404)
+        self.assertEqual(self.client.get(reverse('detalhes_reserva', args=[primeira.id])).status_code, 404)
+        self.assertNotContains(self.client.get(reverse('lista_reservas')), 'Recorrente')
+        api = APIClient()
+        api.force_authenticate(self.usuario_b)
+        self.assertEqual(api.get('/api/reservas/').data, [])
+        self.assertEqual(set(Reserva.objects.values_list('status', flat=True)), {'confirmada'})
+
+    def test_serie_pela_api(self):
+        api = APIClient()
+        api.force_authenticate(self.usuario)
+        inicio = self.inicio()
+        dados = {'sala': self.sala.id, 'data_inicio': inicio.isoformat(),
+                 'data_fim': (inicio + timedelta(hours=1)).isoformat(),
+                 'repetir': 'semanal', 'a_cada': 1, 'ate': (inicio + timedelta(weeks=3)).date().isoformat()}
+        resp = api.post('/api/reservas/', dados, format='json')
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.data['total'], 4)
+        ids = {r['recorrencia'] for r in resp.data['reservas']}
+        self.assertEqual(ids, {resp.data['recorrencia']})
+        self.assertEqual(Reserva.objects.filter(recorrencia_id=resp.data['recorrencia'], criado_por=self.usuario).count(), 4)
+        # A mesma série de novo: todas as datas conflitam
+        resp = api.post('/api/reservas/', dados, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn(inicio.strftime('%d/%m/%Y %H:%M'), str(resp.data))
+        # "Até" antes do início
+        resp = api.post('/api/reservas/', dados | {'ate': (inicio - timedelta(days=1)).date().isoformat()}, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('ate', resp.data)
+        # Sem repetir continua criando uma reserva só
+        outra = inicio + timedelta(days=1)
+        resp = api.post('/api/reservas/', {'sala': self.sala.id, 'data_inicio': outra.isoformat(),
+                                           'data_fim': (outra + timedelta(hours=1)).isoformat()}, format='json')
+        self.assertEqual(resp.status_code, 201)
+        self.assertIsNone(resp.data['recorrencia'])
+        # PATCH não muda a recorrência
+        primeira = Reserva.objects.filter(recorrencia__isnull=False).order_by('data_inicio').first()
+        api.patch(f'/api/reservas/{primeira.id}/', {'recorrencia': None, 'repetir': 'diaria', 'descricao': 'x'}, format='json')
+        primeira.refresh_from_db()
+        self.assertIsNotNone(primeira.recorrencia)
+        self.assertEqual(Reserva.objects.count(), 5)
+
+    def test_formulario_mostra_os_campos_de_repeticao(self):
+        self.client.force_login(self.usuario)
+        resp = self.client.get(reverse('criar_reserva'))
+        for campo in ['name="repetir"', 'name="a_cada"', 'name="ate"', 'Não repetir', 'Todo dia', 'Toda semana', 'Todo mês']:
+            self.assertContains(resp, campo)
+        self.assertNotContains(resp, 'name="recorrencia"')

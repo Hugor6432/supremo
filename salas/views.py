@@ -8,9 +8,9 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core.utils import org_atual, exige_operador
-from . import atividades
+from . import atividades, recorrencia
 from .models import Sala, Recurso, Reserva
-from .forms import RecursoFormSet, ReservaForm, SalaForm
+from .forms import RecursoFormSet, ReservaCriacaoForm, ReservaForm, SalaForm
 
 
 # ===== VIEWS DE SALAS =====
@@ -163,7 +163,16 @@ def lista_reservas(request):
 def criar_reserva(request):
     org = org_atual(request)
     if request.method == 'POST':
-        form = ReservaForm(request.POST, org=org)
+        form = ReservaCriacaoForm(request.POST, org=org)
+        if form.is_valid() and form.cleaned_data['repetir'] != 'nao':
+            # Série: o formulário já conferiu conflito em todas as datas
+            dados = form.cleaned_data
+            _, reservas = recorrencia.cria_serie(
+                request.user, org, dados['sala'], form.ocorrencias,
+                dados['repetir'], dados['a_cada'], dados['ate'], dados.get('descricao') or '',
+            )
+            messages.success(request, recorrencia.mensagem_serie(reservas))
+            return redirect('lista_reservas')
         if form.is_valid():
             reserva = form.save(commit=False)
             reserva.organizacao = org
@@ -187,7 +196,7 @@ def criar_reserva(request):
         inicial = {}
         if sala_id.isdigit() and Sala.objects.filter(id=sala_id, organizacao=org).exists():
             inicial['sala'] = int(sala_id)
-        form = ReservaForm(org=org, initial=inicial)
+        form = ReservaCriacaoForm(org=org, initial=inicial)
     return render(request, 'salas/criar_reserva.html', {'form': form})
 
 
@@ -237,6 +246,34 @@ def cancelar_reserva(request, id):
         messages.success(request, 'Reserva cancelada. O horário ficou livre.')
         return redirect('lista_reservas')
     return render(request, 'salas/cancelar_reserva.html', {'reserva': reserva, 'erro': erro})
+
+
+@login_required
+@require_POST
+def cancelar_serie(request, id):
+    org = org_atual(request)
+    reserva = get_object_or_404(Reserva, id=id, organizacao=org)
+    _checa_dono(request, reserva)
+    if reserva.recorrencia is None:
+        messages.error(request, 'Esta reserva não faz parte de uma série.')
+        return redirect('cancelar_reserva', id=reserva.id)
+    # Esta e as próximas ocorrências futuras que ainda estão ativas
+    proximas = Reserva.objects.filter(
+        organizacao=org, recorrencia=reserva.recorrencia,
+        data_inicio__gte=reserva.data_inicio, data_inicio__gt=timezone.now(),
+    ).exclude(status='cancelada').order_by('data_inicio')
+    permitidas = [r for r in proximas if r.pode_alterar(request.user)]
+    ficaram = len(proximas) - len(permitidas)
+    if permitidas:
+        with transaction.atomic():
+            Reserva.objects.filter(id__in=[r.id for r in permitidas]).update(status='cancelada')
+            atividades.serie_cancelada(request.user, reserva.recorrencia, reserva.sala,
+                                       len(permitidas), permitidas[0].data_inicio)
+    texto = f'{len(permitidas)} reserva(s) da série cancelada(s).'
+    if ficaram:
+        texto += f' {ficaram} ficaram ativas porque faltam menos de 24 horas para o início.'
+    (messages.success if permitidas else messages.warning)(request, texto)
+    return redirect('lista_reservas')
 
 
 def _decide_pendente(request, id, novo_status, acao, texto):

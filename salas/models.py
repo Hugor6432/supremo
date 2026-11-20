@@ -79,8 +79,21 @@ class Recorrencia(DaOrganizacao):
     
     def __str__(self):
         return f"{self.get_frequencia_display()} - A cada {self.intervalo}"
+
+    @property
+    def resumo(self):
+        # Ex.: "semanal, a cada 1, até 18/12"
+        texto = f"{self.get_frequencia_display().lower()}, a cada {self.intervalo}"
+        if self.data_fim:
+            texto += f", até {self.data_fim.strftime('%d/%m')}"
+        return texto
+
+    @property
+    def rotulo(self):
+        return f"Recorrente ({self.resumo})"
     
     class Meta:
+        verbose_name = "recorrência"
         verbose_name_plural = "Recorrências"
 
 

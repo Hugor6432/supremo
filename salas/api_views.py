@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from core.utils import org_atual
-from . import atividades
+from . import atividades, recorrencia
 from .models import Sala, Recurso, Recorrencia, Reserva
 from .permissoes import EhOperadorParaEscrita, PodeAlterarReserva
 from .serializers import (
@@ -100,6 +100,25 @@ class RecorrenciaDetail(SoOperadorEscreveMixin, DaOrganizacaoMixin, generics.Ret
 class ReservaListCreate(DaOrganizacaoMixin, generics.ListCreateAPIView):
     model = Reserva
     serializer_class = ReservaSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        dados = serializer.validated_data
+        if dados.get('repetir', 'nao') == 'nao':
+            self.perform_create(serializer)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Série: devolve a recorrência criada e todas as reservas
+        serie, reservas = recorrencia.cria_serie(
+            request.user, org_atual(request), dados['sala'], serializer.ocorrencias,
+            dados['repetir'], dados.get('a_cada') or 1, dados['ate'], dados.get('descricao') or '',
+        )
+        corpo = {
+            'recorrencia': serie.id,
+            'total': len(reservas),
+            'reservas': ReservaSerializer(reservas, many=True, context=self.get_serializer_context()).data,
+        }
+        return Response(corpo, status=status.HTTP_201_CREATED)
 
     @transaction.atomic
     def perform_create(self, serializer):

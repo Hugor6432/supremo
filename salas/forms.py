@@ -1,5 +1,6 @@
 from django import forms
-from .models import Sala, Recurso, Recorrencia, Reserva
+from . import recorrencia
+from .models import Sala, Recurso, Reserva
 
 
 class SalaForm(forms.ModelForm):
@@ -46,20 +47,19 @@ class ReservaForm(forms.ModelForm):
     class Meta:
         model = Reserva
         # Status, criado_por e responsavel são definidos pelo sistema
-        fields = ['sala', 'data_inicio', 'data_fim', 'descricao', 'recorrencia']
+        # A recorrência é criada pelo sistema a partir dos campos de repetição
+        fields = ['sala', 'data_inicio', 'data_fim', 'descricao']
         widgets = {
             'sala': forms.Select(attrs={'class': 'form-control'}),
             'data_inicio': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
             'data_fim': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Motivo da reserva'}),
-            'recorrencia': forms.Select(attrs={'class': 'form-control'}),
         }
 
     def __init__(self, *args, org=None, **kwargs):
         super().__init__(*args, **kwargs)
-        # Mostra só salas e recorrências da organização do usuário
+        # Mostra só salas da organização do usuário
         self.fields['sala'].queryset = Sala.objects.filter(organizacao=org).order_by('nome')
-        self.fields['recorrencia'].queryset = Recorrencia.objects.filter(organizacao=org)
 
     # Feature 2 - Validação customizada
     def clean(self):
@@ -72,4 +72,38 @@ class ReservaForm(forms.ModelForm):
             raise forms.ValidationError(
                 "O horário de término da reserva deve ser depois do horário de início."
             )
+        return cleaned_data
+
+
+class ReservaCriacaoForm(ReservaForm):
+    # Criação: a pessoa escolhe se a reserva se repete
+    repetir = forms.ChoiceField(
+        choices=recorrencia.REPETIR, required=False, initial='nao', label="Repetir",
+        widget=forms.Select(attrs={'class': 'form-control'}),
+    )
+    a_cada = forms.IntegerField(
+        min_value=1, required=False, initial=1, label="A cada",
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+    )
+    ate = forms.DateField(
+        required=False, label="Até",
+        widget=forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ocorrencias = []
+
+    def clean(self):
+        cleaned_data = super().clean()
+        cleaned_data['repetir'] = cleaned_data.get('repetir') or 'nao'
+        cleaned_data['a_cada'] = cleaned_data.get('a_cada') or 1
+        if cleaned_data['repetir'] == 'nao' or self.errors:
+            return cleaned_data
+        erros, self.ocorrencias = recorrencia.planeja(
+            cleaned_data['sala'], cleaned_data['data_inicio'], cleaned_data['data_fim'],
+            cleaned_data['repetir'], cleaned_data['a_cada'], cleaned_data.get('ate'),
+        )
+        for campo, mensagem in erros:
+            self.add_error(campo, mensagem)
         return cleaned_data

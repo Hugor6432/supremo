@@ -10,6 +10,7 @@
             {% csrf_token %}
             <div class="painel-titulo">{% include "icones/calendario.html" %} Dados da reserva</div>
             {% include "salas/_campos_reserva.html" %}
+            {% include "salas/_campos_repeticao.html" %}
             <div class="rodape-form">
                 <button type="submit" class="btn btn-success btn-lg">{% include "icones/check.html" %}Criar Reserva</button>
                 <a href="{% url 'lista_reservas' %}" class="btn btn-secondary btn-lg">Cancelar</a>

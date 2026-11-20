@@ -44,10 +44,7 @@
 
                 <!-- Recorrência -->
                 {% if reserva.recorrencia %}
-                <div class="info">
-                    <span class="ico-info">{% include "icones/repetir.html" %}</span>
-                    <div><span class="rotulo">Recorrência</span><span class="valor">{{ reserva.recorrencia.get_frequencia_display }} - A cada {{ reserva.recorrencia.intervalo }}</span></div>
-                </div>
+                <div class="mb-2"><span class="tag tag-serie">{% include "icones/repetir.html" %} {{ reserva.recorrencia.rotulo }}</span></div>
                 {% endif %}
 
                 <hr>
