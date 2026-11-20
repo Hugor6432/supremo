@@ -19,11 +19,12 @@ Nenhuma tarefa é maior do que uma sessão de trabalho.
 
 ## Pilar 2: Perfis de acesso · rótulo `perfis`
 
-- [ ] Campo `papel` no `Perfil` (administrador e operador)
-- [ ] Decidir o comportamento de usuário sem `Perfil`
-- [ ] Restringir telas por papel (ex.: só administrador cria, edita e apaga salas)
-- [ ] Restringir endpoints da API por papel (permissão customizada do DRF)
-- [ ] Mostrar ou esconder botões nos templates conforme o papel
+- [x] Campo `papel` no `Perfil` (administrador, operador e usuário)
+- [x] Decidir o comportamento de usuário sem `Perfil` (continua recebendo 403 nas telas)
+- [x] Restringir telas por papel (só operador e administrador gerenciam salas)
+- [x] Restringir endpoints da API por papel (permissão customizada do DRF)
+- [x] Mostrar ou esconder botões nos templates conforme o papel
+- [x] Dono da reserva (`criado_por`), cancelamento com regra das 24 horas e aprovação opcional
 
 ## Pilar 3: API REST · rótulo `api`
 
