@@ -1,79 +1,49 @@
 {% extends 'base.html' %}
 
 {% block conteudo %}
-<h1>Editar Sala: {{ sala.nome }}</h1>
-<div class="row mt-4">
-    <div class="col-md-6">
-        <form method="post" novalidate>
+<div class="page-head">
+    <h1><span class="ico-titulo">{% include "icones/editar.html" %}</span>Editar Sala: {{ sala.nome }}</h1>
+</div>
+<div class="row g-4">
+    <div class="col-lg-7">
+        <form method="post" novalidate class="painel">
             {% csrf_token %}
-            
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">📍 Informações da Sala</h5>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label for="{{ form.nome.id_for_label }}" class="form-label">Nome da Sala</label>
-                        {{ form.nome }}
-                        {% if form.nome.errors %}<div class="alert alert-danger mt-2">{{ form.nome.errors }}</div>{% endif %}
-                    </div>
-                    <div class="mb-3">
-                        <label for="{{ form.capacidade.id_for_label }}" class="form-label">Capacidade (pessoas)</label>
-                        {{ form.capacidade }}
-                        {% if form.capacidade.errors %}<div class="alert alert-danger mt-2">{{ form.capacidade.errors }}</div>{% endif %}
-                    </div>
-                    <div class="mb-3">
-                        <label for="{{ form.descricao.id_for_label }}" class="form-label">Descrição</label>
-                        {{ form.descricao }}
-                        {% if form.descricao.errors %}<div class="alert alert-danger mt-2">{{ form.descricao.errors }}</div>{% endif %}
-                    </div>
-                    <div class="form-check mb-3">
-                        {{ form.exige_aprovacao }}
-                        <label for="{{ form.exige_aprovacao.id_for_label }}" class="form-check-label">Exige aprovação</label>
-                        <div class="form-text">{{ form.exige_aprovacao.help_text }}</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="d-grid gap-2 d-md-flex justify-content-md-start mb-5">
-                <button type="submit" class="btn btn-success btn-lg">💾 Salvar Alterações</button>
+            {% include "salas/_campos_sala.html" %}
+            <div class="rodape-form">
+                <button type="submit" class="btn btn-success btn-lg">{% include "icones/salvar.html" %}Salvar Alterações</button>
                 <a href="{% url 'lista_salas' %}" class="btn btn-secondary btn-lg">Cancelar</a>
             </div>
         </form>
     </div>
-    
+
     <!-- Recursos (Apenas Visualização) -->
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0">🔧 Recursos da Sala</h5>
-            </div>
-            <div class="card-body" style="min-height: 300px;">
-                {% if sala.recursos.all %}
-                    <div class="list-group">
-                        {% for recurso in sala.recursos.all %}
-                        <div class="list-group-item">
-                            <h6 class="mb-1">✓ {{ recurso.nome }}</h6>
-                            {% if recurso.descricao %}
-                                <small class="text-muted">{{ recurso.descricao }}</small>
-                            {% endif %}
+    <div class="col-lg-5">
+        <div class="painel h-100">
+            <div class="painel-titulo">{% include "icones/recurso.html" %} Recursos da Sala</div>
+            {% if sala.recursos.all %}
+                <ul class="lista-recursos">
+                    {% for recurso in sala.recursos.all %}
+                    <li class="info">
+                        <span class="ico-info">{% include "icones/check.html" %}</span>
+                        <div>
+                            <span class="valor">{{ recurso.nome }}</span>
+                            {% if recurso.descricao %}<small class="d-block text-muted">{{ recurso.descricao }}</small>{% endif %}
                         </div>
-                        {% endfor %}
-                    </div>
-                    <p class="text-muted small mt-3">
-                        <strong>Para adicionar/editar/remover recursos,</strong> acesse o <strong>Admin → Salas</strong>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <p class="text-muted small mt-3 mb-0">
+                    <strong>Para adicionar/editar/remover recursos,</strong> acesse o <strong>Admin → Salas</strong>
+                </p>
+            {% else %}
+                <div class="vazio py-4">
+                    <div class="ico-vazio">{% include "icones/vazio.html" %}</div>
+                    <h5>Nenhum recurso adicionado</h5>
+                    <p class="small mb-0">
+                        Os recursos serão listados aqui quando o administrador adicioná-los no <strong>Admin → Salas</strong>
                     </p>
-                {% else %}
-                    <div class="text-center py-5">
-                        <p class="text-muted mb-3">
-                            <strong>📭 Nenhum recurso adicionado</strong>
-                        </p>
-                        <p class="small text-muted">
-                            Os recursos serão listados aqui quando o administrador adicioná-los no <strong>Admin → Salas</strong>
-                        </p>
-                    </div>
-                {% endif %}
-            </div>
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>

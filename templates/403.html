@@ -3,8 +3,10 @@
 {% block titulo %}Acesso negado · Reserva de Salas{% endblock %}
 
 {% block conteudo %}
-<div class="alert alert-warning text-center py-5">
-    <h4>🚫 Acesso negado</h4>
-    <p class="mb-0">{{ exception|default:"Você não tem permissão para acessar esta página." }}</p>
+<div class="painel vazio confirma mx-auto">
+    <div class="ico-vazio perigo">{% include "icones/recusar.html" %}</div>
+    <h4>Acesso negado</h4>
+    <p class="mb-4">{{ exception|default:"Você não tem permissão para acessar esta página." }}</p>
+    <a href="/" class="btn btn-secondary">{% include "icones/voltar.html" %}Voltar ao início</a>
 </div>
 {% endblock %}

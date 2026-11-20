@@ -1,52 +1,21 @@
 {% extends 'base.html' %}
 
 {% block conteudo %}
-<h1>Editar Reserva</h1>
-{% if bloqueada and not form.non_field_errors %}
-<div class="alert alert-warning mt-3">{{ reserva.MSG_24H }}</div>
-{% endif %}
-<div class="row mt-4">
-    <div class="col-md-8">
-        <form method="post">
+<div class="page-head">
+    <h1><span class="ico-titulo">{% include "icones/editar.html" %}</span>Editar Reserva</h1>
+</div>
+<div class="row">
+    <div class="col-lg-9 col-xl-8">
+        {% if bloqueada and not form.non_field_errors %}
+        <div class="alert alert-warning">{% include "icones/alerta.html" %}<div>{{ reserva.MSG_24H }}</div></div>
+        {% endif %}
+        <form method="post" class="painel">
             {% csrf_token %}
-            {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
-            <div class="mb-3">
-                <label for="{{ form.sala.id_for_label }}" class="form-label">Sala</label>
-                {{ form.sala }}
-                {% if form.sala.errors %}<div class="alert alert-danger mt-2">{{ form.sala.errors }}</div>{% endif %}
-            </div>
-            <div class="mb-3">
-                <label for="{{ form.responsavel.id_for_label }}" class="form-label">Responsável</label>
-                {{ form.responsavel }}
-                {% if form.responsavel.errors %}<div class="alert alert-danger mt-2">{{ form.responsavel.errors }}</div>{% endif %}
-            </div>
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label for="{{ form.data_inicio.id_for_label }}" class="form-label">Data e Hora de Início</label>
-                    {{ form.data_inicio }}
-                    {% if form.data_inicio.errors %}<div class="alert alert-danger mt-2">{{ form.data_inicio.errors }}</div>{% endif %}
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label for="{{ form.data_fim.id_for_label }}" class="form-label">Data e Hora de Fim</label>
-                    {{ form.data_fim }}
-                    {% if form.data_fim.errors %}<div class="alert alert-danger mt-2">{{ form.data_fim.errors }}</div>{% endif %}
-                </div>
-            </div>
-            <div class="mb-3">
-                <label for="{{ form.descricao.id_for_label }}" class="form-label">Descrição</label>
-                {{ form.descricao }}
-                {% if form.descricao.errors %}<div class="alert alert-danger mt-2">{{ form.descricao.errors }}</div>{% endif %}
-            </div>
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label for="{{ form.recorrencia.id_for_label }}" class="form-label">Recorrência</label>
-                    {{ form.recorrencia }}
-                    {% if form.recorrencia.errors %}<div class="alert alert-danger mt-2">{{ form.recorrencia.errors }}</div>{% endif %}
-                </div>
-            </div>
-            <div class="d-grid gap-2 d-md-flex justify-content-md-start">
-                <button type="submit" class="btn btn-success">Atualizar Reserva</button>
-                <a href="{% url 'lista_reservas' %}" class="btn btn-secondary">Cancelar</a>
+            <div class="painel-titulo">{% include "icones/calendario.html" %} Dados da reserva</div>
+            {% include "salas/_campos_reserva.html" %}
+            <div class="rodape-form">
+                <button type="submit" class="btn btn-success btn-lg">{% include "icones/salvar.html" %}Atualizar Reserva</button>
+                <a href="{% url 'lista_reservas' %}" class="btn btn-secondary btn-lg">Cancelar</a>
             </div>
         </form>
     </div>

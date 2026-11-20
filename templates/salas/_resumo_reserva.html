@@ -1,0 +1,17 @@
+<div class="resumo">
+    <div class="reserva-topo mb-3">
+        <div class="info mb-0">
+            <span class="ico-info">{% include "icones/sala.html" %}</span>
+            <div><span class="rotulo">Sala</span><span class="valor">{{ reserva.sala.nome }}</span></div>
+        </div>
+        <span class="status status-{{ reserva.status }}">{{ reserva.get_status_display }}</span>
+    </div>
+    <div class="info">
+        <span class="ico-info">{% include "icones/usuario.html" %}</span>
+        <div><span class="rotulo">Responsável</span><span class="valor">{{ reserva.responsavel }}</span></div>
+    </div>
+    <div class="info">
+        <span class="ico-info">{% include "icones/relogio.html" %}</span>
+        <div><span class="rotulo">Data</span><span class="valor">{{ reserva.data_inicio|date:"d/m/Y H:i" }} até {{ reserva.data_fim|date:"d/m/Y H:i" }}</span></div>
+    </div>
+</div>

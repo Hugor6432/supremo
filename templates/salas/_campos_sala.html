@@ -1,0 +1,23 @@
+<div class="painel-titulo">{% include "icones/sala.html" %} Informações da Sala</div>
+<div class="mb-3">
+    <label for="{{ form.nome.id_for_label }}" class="form-label">Nome da Sala</label>
+    {{ form.nome }}
+    {% if form.nome.errors %}<div class="erro-campo">{{ form.nome.errors }}</div>{% endif %}
+</div>
+<div class="mb-3">
+    <label for="{{ form.capacidade.id_for_label }}" class="form-label">Capacidade (pessoas)</label>
+    {{ form.capacidade }}
+    {% if form.capacidade.errors %}<div class="erro-campo">{{ form.capacidade.errors }}</div>{% endif %}
+</div>
+<div class="mb-3">
+    <label for="{{ form.descricao.id_for_label }}" class="form-label">Descrição</label>
+    {{ form.descricao }}
+    {% if form.descricao.errors %}<div class="erro-campo">{{ form.descricao.errors }}</div>{% endif %}
+</div>
+<div class="form-check opcao-destaque">
+    {{ form.exige_aprovacao }}
+    <div>
+        <label for="{{ form.exige_aprovacao.id_for_label }}" class="form-check-label">Exige aprovação</label>
+        <div class="form-text">{{ form.exige_aprovacao.help_text }}</div>
+    </div>
+</div>

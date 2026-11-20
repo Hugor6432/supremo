@@ -1,20 +1,23 @@
 {% extends 'base.html' %}
 
 {% block conteudo %}
-<h1>Deletar Sala</h1>
-<div class="alert alert-danger mt-4">
-    <h4>Tem certeza que deseja deletar a sala "{{ sala.nome }}"?</h4>
-    <p>Esta ação não pode ser desfeita!</p>
+<div class="page-head">
+    <h1><span class="ico-titulo perigo">{% include "icones/lixeira.html" %}</span>Deletar Sala</h1>
 </div>
-<div class="row mt-4">
-    <div class="col-md-6">
-        <form method="post">
-            {% csrf_token %}
-            <div class="d-grid gap-2 d-md-flex">
-                <button type="submit" class="btn btn-danger">Sim, deletar</button>
-                <a href="{% url 'lista_salas' %}" class="btn btn-secondary">Cancelar</a>
-            </div>
-        </form>
+<div class="painel confirma">
+    <div class="alert alert-danger mb-0">
+        {% include "icones/alerta.html" %}
+        <div>
+            <h5 class="mb-1">Tem certeza que deseja deletar a sala "{{ sala.nome }}"?</h5>
+            <div>Esta ação não pode ser desfeita!</div>
+        </div>
     </div>
+    <form method="post">
+        {% csrf_token %}
+        <div class="rodape-form">
+            <button type="submit" class="btn btn-danger">{% include "icones/lixeira.html" %}Sim, deletar</button>
+            <a href="{% url 'lista_salas' %}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
 </div>
 {% endblock %}

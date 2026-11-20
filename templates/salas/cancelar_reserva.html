@@ -1,28 +1,27 @@
 {% extends 'base.html' %}
 
 {% block conteudo %}
-<h1>Cancelar Reserva</h1>
-{% if erro %}
-<div class="alert alert-danger mt-4">{{ erro }}</div>
-{% endif %}
-<div class="alert alert-warning mt-4">
-    <h4>Deseja cancelar esta reserva?</h4>
-    <p><strong>Sala:</strong> {{ reserva.sala.nome }}</p>
-    <p><strong>Responsável:</strong> {{ reserva.responsavel }}</p>
-    <p><strong>Data:</strong> {{ reserva.data_inicio|date:"d/m/Y H:i" }} até {{ reserva.data_fim|date:"d/m/Y H:i" }}</p>
-    <p class="mb-0">A reserva continua no histórico como cancelada e o horário fica livre.</p>
+<div class="page-head">
+    <h1><span class="ico-titulo">{% include "icones/fechar.html" %}</span>Cancelar Reserva</h1>
 </div>
-<div class="row mt-4">
-    <div class="col-md-6">
-        <form method="post">
-            {% csrf_token %}
-            <div class="d-grid gap-2 d-md-flex">
-                {% if not erro %}
-                <button type="submit" class="btn btn-danger">Sim, cancelar reserva</button>
-                {% endif %}
-                <a href="{% url 'lista_reservas' %}" class="btn btn-secondary">Voltar</a>
-            </div>
-        </form>
+<div class="painel confirma">
+    {% if erro %}
+    <div class="alert alert-danger">{% include "icones/alerta.html" %}<div>{{ erro }}</div></div>
+    {% endif %}
+    <h5 class="mb-1">Deseja cancelar esta reserva?</h5>
+    {% include "salas/_resumo_reserva.html" %}
+    <div class="alert alert-info mb-0">
+        {% include "icones/info.html" %}
+        <div>A reserva continua no histórico como cancelada e o horário fica livre.</div>
     </div>
+    <form method="post">
+        {% csrf_token %}
+        <div class="rodape-form">
+            {% if not erro %}
+            <button type="submit" class="btn btn-danger">{% include "icones/fechar.html" %}Sim, cancelar reserva</button>
+            {% endif %}
+            <a href="{% url 'lista_reservas' %}" class="btn btn-secondary">{% include "icones/voltar.html" %}Voltar</a>
+        </div>
+    </form>
 </div>
 {% endblock %}
