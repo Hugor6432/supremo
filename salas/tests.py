@@ -376,3 +376,89 @@ class AdminTipoUsuarioTest(TestCase):
         # Superusuário aparece como Administrador
         resp = self.client.get(f'/admin/auth/user/{self.super.id}/change/')
         self.assertEqual(resp.context['adminform'].form['tipo_usuario'].value(), 'administrador')
+
+
+# ===== CADASTRO PÚBLICO =====
+
+class CadastroTest(TestCase):
+    URL = '/contas/cadastro/'
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.org_a = Organizacao.objects.create(nome="Org A")
+        cls.org_b = Organizacao.objects.create(nome="Org B")
+        cls.sala = Sala.objects.create(organizacao=cls.org_b, nome="Sala B1", capacidade=5)
+
+    def dados(self, **extra):
+        return {
+            'username': 'novo', 'email': 'novo@example.com',
+            'password1': 'Senha-Forte-987', 'password2': 'Senha-Forte-987',
+            'organizacao': self.org_b.id, **extra,
+        }
+
+    def test_cadastro_cria_usuario_comum_logado(self):
+        resp = self.client.post(self.URL, self.dados(), follow=True)
+        self.assertRedirects(resp, reverse('lista_salas'))
+        self.assertContains(resp, 'Conta criada! Você já pode reservar salas.')
+        user = User.objects.get(username='novo')
+        self.assertEqual(user.email, 'novo@example.com')
+        self.assertTrue(user.check_password('Senha-Forte-987'))
+        self.assertFalse(user.is_staff)
+        self.assertFalse(user.is_superuser)
+        self.assertEqual(user.perfil.papel, Perfil.USUARIO)
+        self.assertEqual(user.perfil.organizacao, self.org_b)
+        self.assertEqual(int(self.client.session['_auth_user_id']), user.id)
+        # Sem acesso ao Admin
+        self.assertEqual(self.client.get('/admin/').status_code, 302)
+
+    def test_post_forjado_nao_muda_o_acesso(self):
+        forjado = self.dados(
+            is_staff='on', is_superuser='on', papel='administrador',
+            tipo_usuario='administrador', groups='1',
+        )
+        self.client.post(self.URL, forjado)
+        user = User.objects.get(username='novo')
+        self.assertFalse(user.is_staff)
+        self.assertFalse(user.is_superuser)
+        self.assertEqual(user.perfil.papel, Perfil.USUARIO)
+
+    def test_senhas_diferentes_mostram_erro(self):
+        resp = self.client.post(self.URL, self.dados(password2='Outra-Senha-123'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.context['form'].errors.get('password2'))
+        self.assertFalse(User.objects.filter(username='novo').exists())
+
+    def test_organizacao_obrigatoria(self):
+        resp = self.client.post(self.URL, self.dados(organizacao=''))
+        self.assertTrue(resp.context['form'].errors.get('organizacao'))
+        self.assertFalse(User.objects.filter(username='novo').exists())
+
+    def test_uma_organizacao_so_ja_vem_selecionada(self):
+        # A migração 0003 cria a "Organização padrão"; deixa só a org B
+        Organizacao.objects.exclude(pk=self.org_b.pk).delete()
+        resp = self.client.get(self.URL)
+        self.assertEqual(resp.context['form']['organizacao'].value(), self.org_b.id)
+
+    def test_logado_vai_para_lista_de_salas(self):
+        user = User.objects.create_user('ja', password='x')
+        self.client.force_login(user)
+        self.assertRedirects(self.client.get(self.URL), reverse('lista_salas'), fetch_redirect_response=False)
+
+    def test_links_entre_login_e_cadastro(self):
+        self.assertContains(self.client.get(reverse('login')), self.URL)
+        self.assertContains(self.client.get(self.URL), reverse('login'))
+
+    def test_recem_cadastrado_nao_cria_sala_mas_reserva(self):
+        self.client.post(self.URL, self.dados())
+        resp = self.client.post(reverse('criar_sala'), {'nome': 'X', 'capacidade': 3, 'descricao': ''})
+        self.assertEqual(resp.status_code, 403)
+        inicio = timezone.now() + timedelta(hours=48)
+        resp = self.client.post(reverse('criar_reserva'), {
+            'sala': self.sala.id, 'responsavel': 'Novo',
+            'data_inicio': Base.local(inicio), 'data_fim': Base.local(inicio + timedelta(hours=1)),
+            'descricao': '', 'recorrencia': '',
+        })
+        self.assertEqual(resp.status_code, 302)
+        reserva = Reserva.objects.get()
+        self.assertEqual(reserva.criado_por.username, 'novo')
+        self.assertEqual(reserva.status, 'confirmada')

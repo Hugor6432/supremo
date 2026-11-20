@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block titulo %}Criar conta · Reserva de Salas{% endblock %}
+
+{% block conteudo %}
+<div class="painel login-card">
+    <div class="login-topo">
+        <div class="login-ico">{% include "icones/usuario.html" %}</div>
+        <h4 class="mb-1">Criar conta</h4>
+        <p class="text-muted mb-0 small">Cadastre-se para reservar as salas da sua organização</p>
+    </div>
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">{% include "icones/alerta.html" %}<div>{{ form.non_field_errors }}</div></div>
+    {% endif %}
+    <form method="post" action="{% url 'cadastro' %}" novalidate>
+        {% csrf_token %}
+        {% for campo in form %}
+        <div class="mb-3">
+            <label for="{{ campo.id_for_label }}" class="form-label">{{ campo.label }}</label>
+            {{ campo }}
+            {% if campo.help_text %}<div class="form-text small">{{ campo.help_text }}</div>{% endif %}
+            {% if campo.errors %}<div class="erro-campo">{{ campo.errors }}</div>{% endif %}
+        </div>
+        {% endfor %}
+        <div class="d-grid mt-4">
+            <button type="submit" class="btn btn-primary btn-lg">{% include "icones/check.html" %}Criar conta</button>
+        </div>
+    </form>
+    <p class="text-center small mt-4 mb-0">Já tem conta? <a href="{% url 'login' %}">Entrar</a></p>
+</div>
+{% endblock %}
