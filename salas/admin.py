@@ -60,6 +60,7 @@ class PerfilInline(admin.StackedInline):
     can_delete = False
     verbose_name = "Organização do usuário"
     verbose_name_plural = "Organização do usuário"
+    fields = ('organizacao', 'papel')
 
 
 # Customizar User Admin

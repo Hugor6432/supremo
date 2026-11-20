@@ -1,5 +1,7 @@
 from django.core.exceptions import PermissionDenied
 
+from .models import Perfil
+
 
 def org_atual(request):
     # Usuário sem perfil (ex.: superusuário) não acessa as telas
@@ -10,3 +12,32 @@ def org_atual(request):
             "Peça ao administrador para criar o seu Perfil."
         )
     return perfil.organizacao
+
+
+def papel_do_usuario(user):
+    # Papel do usuário, ou None se ele não tiver perfil
+    perfil = getattr(user, 'perfil', None)
+    return perfil.papel if perfil else None
+
+
+def eh_operador_usuario(user):
+    # Operador e administrador gerenciam salas e todas as reservas
+    return papel_do_usuario(user) in (Perfil.OPERADOR, Perfil.ADMINISTRADOR)
+
+
+def papel_atual(request):
+    return papel_do_usuario(request.user)
+
+
+def eh_operador(request):
+    return eh_operador_usuario(request.user)
+
+
+def eh_administrador(request):
+    return papel_atual(request) == Perfil.ADMINISTRADOR
+
+
+def exige_operador(request):
+    # 403 para quem não é operador nem administrador
+    if not eh_operador(request):
+        raise PermissionDenied("Só operadores e administradores podem fazer isso.")

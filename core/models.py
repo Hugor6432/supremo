@@ -26,8 +26,18 @@ class DaOrganizacao(models.Model):
 
 
 class Perfil(models.Model):
+    ADMINISTRADOR = 'administrador'
+    OPERADOR = 'operador'
+    USUARIO = 'usuario'
+    PAPEIS = [
+        (ADMINISTRADOR, 'Administrador'),
+        (OPERADOR, 'Operador'),
+        (USUARIO, 'Usuário'),
+    ]
+
     usuario = models.OneToOneField(User, on_delete=models.CASCADE)
     organizacao = models.ForeignKey(Organizacao, on_delete=models.PROTECT)
+    papel = models.CharField(max_length=20, choices=PAPEIS, default=USUARIO)
 
     def __str__(self):
         return f"{self.usuario.username} ({self.organizacao})"
