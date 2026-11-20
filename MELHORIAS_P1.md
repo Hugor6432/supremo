@@ -53,6 +53,16 @@ qualquer pessoa sem login consegue criar, editar e apagar salas e reservas.
 **Correção:** ler `SECRET_KEY` e `DEBUG` de variáveis de ambiente (`.env` fora do Git) e exigir
 login em todas as telas (`@login_required`), o que já é necessário para a multi-organização.
 
+## 6. Senha editável no Admin salva sem criptografia
+
+**Onde:** `salas/admin.py`, `UsuarioForm`.
+
+**Problema:** o campo `password` aparecia como texto editável. Uma senha digitada ali era salva
+sem hash, e o usuário não conseguia mais entrar.
+
+**Correção:** declarar `password = ReadOnlyPasswordHashField(...)`. O campo fica só leitura e a troca
+de senha passa pelo formulário próprio do Admin (link "este formulário").
+
 ---
 
 ## Situação
@@ -64,3 +74,4 @@ login em todas as telas (`@login_required`), o que já é necessário para a mul
 | 3. `tem_conflito()` em Python | Pendente |
 | 4. Recurso e responsável | Pendente |
 | 5. Configurações e login | Em andamento: login exigido em todas as telas; falta `.env` |
+| 6. Senha editável no Admin | Corrigido |

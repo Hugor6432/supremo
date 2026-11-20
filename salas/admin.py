@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.forms import ReadOnlyPasswordHashField
 from django.contrib.auth.models import User, Group
 from core.models import Perfil
 from .models import Sala, Recurso, Reserva, Recorrencia
@@ -23,6 +24,8 @@ class UsuarioForm(forms.ModelForm):
         widget=forms.RadioSelect,
         label="Tipo de Usuário"
     )
+
+    password = ReadOnlyPasswordHashField(label="Senha", help_text='Para trocar a senha, use <a href="../password/">este formulário</a>.')
     
     class Meta:
         model = User
