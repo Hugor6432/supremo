@@ -33,3 +33,11 @@ class PodeAlterarReserva(permissions.BasePermission):
             self.message = Reserva.MSG_24H
             return False
         return True
+
+
+class PodeVerDashboard(permissions.BasePermission):
+    # Mesma regra da tela: funcionário e administrador
+    message = "Só funcionários e administradores podem ver o dashboard."
+
+    def has_permission(self, request, view):
+        return eh_operador_usuario(request.user)

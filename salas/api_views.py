@@ -2,11 +2,13 @@ from django.db import transaction
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from core.utils import org_atual
-from . import atividades, recorrencia
+from core.utils import eh_administrador_completo, org_atual
+from . import atividades, dashboard as metricas, recorrencia
 from .models import Sala, Recurso, Recorrencia, Reserva
-from .permissoes import EhOperadorParaEscrita, PodeAlterarReserva
+from .forms import PeriodoForm
+from .permissoes import EhOperadorParaEscrita, PodeAlterarReserva, PodeVerDashboard
 from .serializers import (
     SalaSerializer, RecursoSerializer, RecorrenciaSerializer, ReservaSerializer,
 )
@@ -191,3 +193,22 @@ class ReservaAprovar(ReservaAcaoBase):
 class ReservaRecusar(ReservaAprovar):
     novo_status = 'cancelada'
     acao = 'recusou'
+
+
+# ===== DASHBOARD =====
+
+class Dashboard(APIView):
+    # Mesmos números da tela; a série por mês só vai para o administrador
+    permission_classes = [IsAuthenticated, PodeVerDashboard]
+
+    def get(self, request):
+        form = PeriodoForm(request.query_params or None)
+        inicio = fim = None
+        if form.is_bound:
+            if not form.is_valid():
+                return Response({'erros': form.errors}, status=status.HTTP_400_BAD_REQUEST)
+            inicio, fim = form.cleaned_data.get('inicio'), form.cleaned_data.get('fim')
+        completo = eh_administrador_completo(request.user)
+        dados = metricas.resumo(org_atual(request), inicio, fim, com_serie=completo)
+        dados['periodo'] = {'inicio': inicio, 'fim': fim}
+        return Response(dados)

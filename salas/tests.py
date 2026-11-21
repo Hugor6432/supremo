@@ -1375,3 +1375,56 @@ class DashboardExportarTest(DashboardBase):
             self.cria(self.sala_aprov, self.em(date(2026, 2, 1 + n)), dono=self.outro)
         with self.assertNumQueries(5):
             self.client.get(self.URL_CSV)
+
+
+class DashboardApiTest(DashboardBase):
+    URL_API = '/api/dashboard/'
+
+    def api(self, user, **params):
+        cliente = APIClient()
+        cliente.force_authenticate(user)
+        return cliente.get(self.URL_API, params)
+
+    def popula(self):
+        hoje = timezone.localdate()
+        for dia in (5, 6, 7):
+            self.cria(self.sala, self.em(date(2026, 3, dia)))
+        self.cria(self.sala_aprov, self.em(date(2026, 1, 20)), status='pendente', dono=self.outro)
+        self.cria(self.sala_aprov, self.em(date(2026, 3, 21)), status='cancelada', dono=self.outro)
+        self.cria(self.sala, self.em(hoje - timedelta(days=hoje.weekday())))
+        self.cria(self.sala_b, self.em(date(2026, 3, 5)), dono=self.usuario_b)
+
+    def test_api_tem_os_mesmos_numeros_da_tela(self):
+        self.popula()
+        for params in [{}, {'inicio': '2026-03-01', 'fim': '2026-03-31'}]:
+            tela = self.tela(**params).context
+            resp = self.api(self.chefe, **params)
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.data['kpis'], tela['kpis'])
+            self.assertEqual(resp.data['ranking'], tela['ranking'])
+            self.assertEqual(resp.data['por_status'], tela['por_status'])
+            self.assertEqual(resp.data['por_mes'], tela['por_mes'])
+        self.assertEqual(self.api(self.chefe, inicio='2026-03-01', fim='2026-03-31').data['kpis']['total'], 4)
+
+    def test_funcionario_sem_serie_por_mes(self):
+        self.popula()
+        for user in [self.operador, self.admin]:
+            resp = self.api(user)
+            self.assertEqual(resp.status_code, 200)
+            self.assertNotIn('por_mes', resp.data)
+            self.assertEqual(resp.data['kpis'], self.tela(user).context['kpis'])
+
+    def test_usuario_comum_e_anonimo_recebem_403(self):
+        self.assertEqual(self.api(self.usuario).status_code, 403)
+        self.assertEqual(APIClient().get(self.URL_API).status_code, 403)
+
+    def test_isolamento_e_data_invalida(self):
+        self.popula()
+        chefe_b = User.objects.create_superuser('chefe_b', password='x')
+        Perfil.objects.create(usuario=chefe_b, organizacao=self.org_b, papel=Perfil.ADMINISTRADOR)
+        self.assertEqual(self.api(chefe_b).data['kpis']['total'], 1)
+        resp = self.api(self.chefe, inicio='2026-02-30')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('inicio', resp.data['erros'])
+        resp = self.api(self.chefe, inicio='2026-03-10', fim='2026-03-01')
+        self.assertEqual(resp.status_code, 400)
