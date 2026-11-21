@@ -1,4 +1,6 @@
 import calendar
+import csv
+import io
 from datetime import date, datetime, time, timedelta
 
 from django.contrib.auth.models import User
@@ -1306,3 +1308,70 @@ class DashboardPermissaoTest(DashboardBase):
             self.cria(sala, self.em(date(2026, 1 + n % 6, 10)), status=['confirmada', 'pendente', 'cancelada'][n % 3])
         with self.assertNumQueries(9):
             self.client.get(self.URL)
+
+
+class DashboardExportarTest(DashboardBase):
+    URL_CSV = '/dashboard/exportar/'
+
+    def linhas(self, resp):
+        texto = resp.content.decode('utf-8')
+        self.assertTrue(texto.startswith('﻿'))
+        return list(csv.reader(io.StringIO(texto.lstrip('﻿')), delimiter=';'))
+
+    def test_csv_com_colunas_e_so_da_organizacao(self):
+        joao = User.objects.create_user('joao', email='joao@email.com', password='x')
+        self.cria(self.sala, self.em(date(2026, 3, 5)), dono=joao)
+        self.cria(self.sala_aprov, self.em(date(2026, 3, 6)), status='pendente')
+        self.cria(self.sala_b, self.em(date(2026, 3, 7)), dono=self.usuario_b)
+        excluida = self.cria(self.sala, self.em(date(2026, 3, 8)))
+        excluida.excluir(self.operador)
+        self.client.force_login(self.chefe)
+        resp = self.client.get(self.URL_CSV)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp['Content-Type'], 'text/csv; charset=utf-8')
+        self.assertEqual(resp['Content-Disposition'], 'attachment; filename="reservas.csv"')
+        linhas = self.linhas(resp)
+        self.assertEqual(linhas[0], ['Sala', 'Reservado por', 'E-mail', 'Início', 'Fim', 'Status'])
+        self.assertEqual(linhas[1:], [
+            ['Sala 1', 'joao', 'joao@email.com', '05/03/2026 10:00', '05/03/2026 11:00', 'Confirmada'],
+            ['Sala Diretoria', 'usuario', '', '06/03/2026 10:00', '06/03/2026 11:00', 'Pendente'],
+        ])
+
+    def test_csv_respeita_o_periodo(self):
+        self.cria(self.sala, self.em(date(2026, 1, 5)))
+        self.cria(self.sala, self.em(date(2026, 2, 5)))
+        self.client.force_login(self.chefe)
+        linhas = self.linhas(self.client.get(self.URL_CSV, {'inicio': '2026-02-01'}))
+        self.assertEqual([l[3] for l in linhas[1:]], ['05/02/2026 10:00'])
+        # Data inválida: filtro ignorado, sem erro
+        linhas = self.linhas(self.client.get(self.URL_CSV, {'inicio': 'xx'}))
+        self.assertEqual(len(linhas), 3)
+
+    def test_csv_protege_contra_formula(self):
+        perigoso = User.objects.create_user('=HYPERLINK("http://x")', email='@evil.com', password='x')
+        sala = Sala.objects.create(organizacao=self.org_a, nome='+SOMA(1;2)', capacidade=3)
+        self.cria(sala, self.em(date(2026, 3, 5)), dono=perigoso)
+        antiga = self.cria(self.sala, self.em(date(2026, 3, 6)))
+        Reserva.objects.filter(pk=antiga.pk).update(criado_por=None, responsavel='-2+3')
+        self.client.force_login(self.chefe)
+        linhas = self.linhas(self.client.get(self.URL_CSV))
+        self.assertEqual(linhas[1][:3], ["'+SOMA(1;2)", '\'=HYPERLINK("http://x")', "'@evil.com"])
+        self.assertEqual(linhas[2][:3], ['Sala 1', "'-2+3", ''])
+
+    def test_so_administrador_exporta(self):
+        for user in [self.operador, self.admin, self.usuario]:
+            self.client.force_login(user)
+            self.assertEqual(self.client.get(self.URL_CSV).status_code, 403, user.username)
+        # Botão só aparece para o administrador
+        self.assertNotContains(self.tela(self.operador), self.URL_CSV)
+        self.assertContains(self.tela(), self.URL_CSV)
+
+    def test_consultas_do_csv_nao_crescem(self):
+        self.client.force_login(self.chefe)
+        self.cria(self.sala, self.em(date(2026, 1, 10)))
+        with self.assertNumQueries(5):
+            self.client.get(self.URL_CSV)
+        for n in range(5):
+            self.cria(self.sala_aprov, self.em(date(2026, 2, 1 + n)), dono=self.outro)
+        with self.assertNumQueries(5):
+            self.client.get(self.URL_CSV)

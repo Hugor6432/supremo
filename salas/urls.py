@@ -11,6 +11,7 @@ urlpatterns = [
     
     # Dashboard
     path('dashboard/', views.dashboard, name='dashboard'),
+    path('dashboard/exportar/', views.exportar_dashboard, name='exportar_dashboard'),
 
     # Reservas
     path('reservas/', views.lista_reservas, name='lista_reservas'),

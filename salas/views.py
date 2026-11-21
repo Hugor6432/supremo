@@ -1,8 +1,11 @@
+import csv
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -356,3 +359,43 @@ def dashboard(request):
         **metricas.resumo(org, inicio, fim, com_serie=completo),
     }
     return render(request, 'salas/dashboard.html', contexto)
+
+
+# Começos que o Excel interpretaria como fórmula
+INICIOS_PERIGOSOS = ('=', '+', '-', '@', '\t', '\r')
+
+
+def celula_segura(valor):
+    texto = '' if valor is None else str(valor)
+    return "'" + texto if texto.startswith(INICIOS_PERIGOSOS) else texto
+
+
+@login_required
+def exportar_dashboard(request):
+    org = org_atual(request)
+    if not eh_administrador_completo(request.user):
+        raise PermissionDenied("Só o administrador pode exportar as reservas.")
+    _, inicio, fim = periodo_do_request(request)
+    reservas = (
+        metricas.base(org, inicio, fim)
+        .select_related('sala', 'criado_por')
+        .order_by('data_inicio')
+    )
+    resposta = HttpResponse(content_type='text/csv; charset=utf-8')
+    resposta['Content-Disposition'] = 'attachment; filename="reservas.csv"'
+    # BOM para o Excel reconhecer o UTF-8; ";" é o separador do Excel em português
+    resposta.write('\ufeff')
+    escritor = csv.writer(resposta, delimiter=';')
+    escritor.writerow(['Sala', 'Reservado por', 'E-mail', 'Início', 'Fim', 'Status'])
+    formato = '%d/%m/%Y %H:%M'
+    for reserva in reservas:
+        dono = reserva.criado_por
+        escritor.writerow([celula_segura(valor) for valor in [
+            reserva.sala.nome,
+            dono.username if dono else reserva.responsavel,
+            dono.email if dono else '',
+            timezone.localtime(reserva.data_inicio).strftime(formato),
+            timezone.localtime(reserva.data_fim).strftime(formato),
+            reserva.get_status_display(),
+        ]])
+    return resposta

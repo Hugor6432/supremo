@@ -9,6 +9,9 @@
         <h1><span class="ico-titulo">{% include "icones/grafico.html" %}</span>Dashboard</h1>
         <p class="sub">{% if periodo_inicio or periodo_fim %}Período: {{ periodo_inicio|date:"d/m/Y"|default:"início" }} até {{ periodo_fim|date:"d/m/Y"|default:"hoje e depois" }}{% else %}Todas as reservas da organização{% endif %}</p>
     </div>
+    {% if completo %}
+    <a href="{% url 'exportar_dashboard' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-primary">{% include "icones/salvar.html" %}Exportar CSV</a>
+    {% endif %}
 </div>
 
 <!-- Filtro de período -->
