@@ -9,6 +9,9 @@ urlpatterns = [
     path('salas/<int:id>/editar/', views.editar_sala, name='editar_sala'),
     path('salas/<int:id>/deletar/', views.deletar_sala, name='deletar_sala'),
     
+    # Dashboard
+    path('dashboard/', views.dashboard, name='dashboard'),
+
     # Reservas
     path('reservas/', views.lista_reservas, name='lista_reservas'),
     path('reservas/criar/', views.criar_reserva, name='criar_reserva'),

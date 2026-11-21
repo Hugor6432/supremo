@@ -7,10 +7,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from core.utils import org_atual, exige_operador
-from . import atividades, recorrencia
+from core.utils import eh_administrador_completo, org_atual, exige_operador
+from . import atividades, dashboard as metricas, recorrencia
 from .models import Sala, Recurso, Reserva
-from .forms import RecursoFormSet, ReservaCriacaoForm, ReservaForm, SalaForm
+from .forms import PeriodoForm, RecursoFormSet, ReservaCriacaoForm, ReservaForm, SalaForm
 
 
 # ===== VIEWS DE SALAS =====
@@ -330,3 +330,29 @@ def detalhes_reserva(request, id):
     reserva = get_object_or_404(Reserva, id=id, organizacao=org)
     contexto = {'reserva': reserva, 'pode_alterar': reserva.pode_alterar(request.user)}
     return render(request, 'salas/detalhes_reserva.html', contexto)
+
+
+# ===== DASHBOARD =====
+
+def periodo_do_request(request):
+    # Data inválida não quebra a tela: o filtro é ignorado e o erro aparece no formulário
+    form = PeriodoForm(request.GET or None)
+    if form.is_valid():
+        return form, form.cleaned_data.get('inicio'), form.cleaned_data.get('fim')
+    return form, None, None
+
+
+@login_required
+def dashboard(request):
+    org = org_atual(request)
+    exige_operador(request)
+    form, inicio, fim = periodo_do_request(request)
+    completo = eh_administrador_completo(request.user)
+    contexto = {
+        'form': form,
+        'completo': completo,
+        'periodo_inicio': inicio,
+        'periodo_fim': fim,
+        **metricas.resumo(org, inicio, fim, com_serie=completo),
+    }
+    return render(request, 'salas/dashboard.html', contexto)

@@ -1,5 +1,5 @@
 import calendar
-from datetime import timedelta
+from datetime import date, datetime, time, timedelta
 
 from django.contrib.auth.models import User
 from django.db import connection
@@ -1140,3 +1140,169 @@ class DesempenhoTest(Base):
 
     def test_detalhes_da_sala(self):
         self.confere(reverse('detalhes_sala', args=[self.sala.id]), 7)
+
+
+# ===== DASHBOARD =====
+
+class DashboardBase(Base):
+    URL = '/dashboard/'
+
+    def setUp(self):
+        # Administrador completo: superusuário com perfil de administrador
+        self.chefe = User.objects.create_superuser('chefe', password='x', email='chefe@org.com')
+        Perfil.objects.create(usuario=self.chefe, organizacao=self.org_a, papel=Perfil.ADMINISTRADOR)
+
+    @staticmethod
+    def em(dia, hora=10):
+        return timezone.make_aware(datetime.combine(dia, time(hora)))
+
+    def cria(self, sala, inicio, status='confirmada', dono=None):
+        dono = dono or self.usuario
+        return Reserva.objects.create(
+            organizacao=sala.organizacao, sala=sala, responsavel=dono.username, criado_por=dono,
+            data_inicio=inicio, data_fim=inicio + timedelta(hours=1), status=status,
+        )
+
+    def tela(self, user=None, **params):
+        self.client.force_login(user or self.chefe)
+        return self.client.get(self.URL, params)
+
+
+class DashboardTest(DashboardBase):
+    def test_so_conta_a_propria_organizacao(self):
+        for n in range(3):
+            self.cria(self.sala, self.em(date(2026, 1, 10 + n)))
+        for n in range(5):
+            self.cria(self.sala_b, self.em(date(2026, 1, 10 + n)), dono=self.usuario_b)
+        resp = self.tela()
+        self.assertEqual(resp.context['kpis']['total'], 3)
+        self.assertEqual([l['sala'] for l in resp.context['ranking']], ['Sala 1'])
+        self.assertNotContains(resp, 'Sala B')
+
+    def test_periodo_filtra_por_data_de_inicio(self):
+        self.cria(self.sala, self.em(date(2026, 1, 10)))
+        self.cria(self.sala, self.em(date(2026, 2, 15), hora=23))
+        self.cria(self.sala, self.em(date(2026, 3, 20)))
+        casos = [
+            ({}, 3),
+            ({'inicio': '2026-02-01', 'fim': '2026-02-28'}, 1),
+            ({'inicio': '2026-02-15'}, 2),
+            ({'fim': '2026-02-15'}, 2),  # o último dia entra inteiro
+            ({'inicio': '2026-04-01'}, 0),
+        ]
+        for params, total in casos:
+            self.assertEqual(self.tela(**params).context['kpis']['total'], total, params)
+
+    def test_reservas_excluidas_nao_entram(self):
+        a = self.cria(self.sala, self.em(date(2026, 1, 10)))
+        self.cria(self.sala, self.em(date(2026, 1, 11)))
+        self.cria(self.sala_aprov, self.em(date(2026, 1, 12)), status='pendente')
+        a.excluir(self.operador)
+        resp = self.tela()
+        self.assertEqual(resp.context['kpis']['total'], 2)
+        self.assertEqual(resp.context['kpis']['confirmadas'], 1)
+        self.assertEqual(sum(l['total'] for l in resp.context['ranking']), 2)
+        self.assertEqual(sum(i['total'] for i in resp.context['por_status']), 2)
+        self.assertEqual(sum(m['total'] for m in resp.context['por_mes']), 2)
+
+    def test_sem_dados_abre_sem_erro(self):
+        resp = self.tela()
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Sem dados no período')
+        self.assertEqual(resp.context['kpis'], {'total': 0, 'confirmadas': 0, 'pendentes': 0,
+                                                'canceladas': 0, 'pessoas': 0, 'semana': 0})
+        self.assertEqual(resp.context['por_mes'], [])
+
+    def test_data_invalida_nao_da_500(self):
+        self.cria(self.sala, self.em(date(2026, 1, 10)))
+        self.cria(self.sala, self.em(date(2026, 3, 10)))
+        resp = self.tela(inicio='2026-13-45', fim='abc')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.context['form'].errors.get('inicio'))
+        self.assertTrue(resp.context['form'].errors.get('fim'))
+        self.assertEqual(resp.context['kpis']['total'], 2)  # filtro ignorado
+        resp = self.tela(inicio='2026-03-01', fim='2026-01-01')
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'A data final não pode ser antes da data inicial.')
+        self.assertEqual(resp.context['kpis']['total'], 2)
+
+    def test_numeros_ranking_distribuicao_e_serie(self):
+        for dia in (5, 6, 7):
+            self.cria(self.sala, self.em(date(2026, 3, dia)))
+        self.cria(self.sala_aprov, self.em(date(2026, 1, 20)), status='pendente', dono=self.outro)
+        self.cria(self.sala_aprov, self.em(date(2026, 3, 21)), status='cancelada', dono=self.outro)
+        self.cria(self.sala_aprov, self.em(date(2026, 3, 22)), status='cancelada', dono=self.outro)
+        resp = self.tela()
+        self.assertEqual(resp.context['kpis'] | {'semana': 0},
+                         {'total': 6, 'confirmadas': 3, 'pendentes': 1, 'canceladas': 2, 'pessoas': 2, 'semana': 0})
+        self.assertEqual([(l['sala'], l['total']) for l in resp.context['ranking']],
+                         [('Sala 1', 3), ('Sala Diretoria', 1)])
+        self.assertEqual([(i['status'], i['total'], i['percentual']) for i in resp.context['por_status']],
+                         [('confirmada', 3, 50), ('pendente', 1, 17), ('cancelada', 2, 33)])
+        self.assertEqual(resp.context['por_mes'], [{'mes': '01/2026', 'total': 1}, {'mes': '03/2026', 'total': 5}])
+
+    def test_ranking_mostra_so_as_5_primeiras(self):
+        for n in range(7):
+            sala = Sala.objects.create(organizacao=self.org_a, nome=f'Sala R{n}', capacidade=4)
+            for k in range(n + 1):
+                self.cria(sala, self.em(date(2026, 2, 1 + k)))
+        ranking = self.tela().context['ranking']
+        self.assertEqual([l['sala'] for l in ranking], ['Sala R6', 'Sala R5', 'Sala R4', 'Sala R3', 'Sala R2'])
+
+    def test_reservas_desta_semana(self):
+        hoje = timezone.localdate()
+        segunda = hoje - timedelta(days=hoje.weekday())
+        self.cria(self.sala, self.em(segunda, 8))
+        self.cria(self.sala, self.em(segunda + timedelta(days=6), 20), status='pendente')
+        self.cria(self.sala, self.em(segunda + timedelta(days=2), 12), status='cancelada')
+        self.cria(self.sala, self.em(segunda + timedelta(days=7), 9))      # próxima semana
+        self.cria(self.sala, self.em(segunda - timedelta(days=1), 9))      # domingo passado
+        excluida = self.cria(self.sala, self.em(segunda + timedelta(days=3), 9))
+        excluida.excluir(self.operador)
+        self.cria(self.sala_b, self.em(segunda + timedelta(days=1), 9), dono=self.usuario_b)
+        self.assertEqual(self.tela().context['kpis']['semana'], 2)
+        # Não depende do filtro de período
+        self.assertEqual(self.tela(inicio='2020-01-01', fim='2020-01-31').context['kpis']['semana'], 2)
+
+
+class DashboardPermissaoTest(DashboardBase):
+    def test_administrador_ve_tudo(self):
+        self.cria(self.sala, self.em(date(2026, 1, 10)))
+        resp = self.tela()
+        self.assertTrue(resp.context['completo'])
+        self.assertContains(resp, 'id="grafico-por-mes"')
+        self.assertContains(resp, 'id="dados-por-mes"')
+        self.assertContains(resp, 'js/chart.umd.js')
+        self.assertContains(resp, 'js/dashboard.js')
+
+    def test_funcionario_ve_sem_grafico(self):
+        self.cria(self.sala, self.em(date(2026, 1, 10)))
+        # Operador e administrador sem superusuário contam como funcionário
+        for user in [self.operador, self.admin]:
+            resp = self.tela(user)
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.context['kpis']['total'], 1)
+            self.assertFalse(resp.context['completo'])
+            self.assertNotIn('por_mes', resp.context)
+            self.assertNotContains(resp, 'grafico-por-mes')
+            self.assertNotContains(resp, 'chart.umd.js')
+
+    def test_usuario_comum_recebe_403(self):
+        self.assertEqual(self.tela(self.usuario).status_code, 403)
+
+    def test_link_dashboard_so_para_quem_pode(self):
+        self.client.force_login(self.operador)
+        self.assertContains(self.client.get(reverse('lista_salas')), 'href="/dashboard/"')
+        self.client.force_login(self.usuario)
+        self.assertNotContains(self.client.get(reverse('lista_salas')), 'href="/dashboard/"')
+
+    def test_consultas_do_dashboard_nao_crescem(self):
+        self.client.force_login(self.chefe)
+        self.cria(self.sala, self.em(date(2026, 1, 10)))
+        with self.assertNumQueries(9):
+            self.client.get(self.URL)
+        for n in range(6):
+            sala = Sala.objects.create(organizacao=self.org_a, nome=f'Sala Q{n}', capacidade=4)
+            self.cria(sala, self.em(date(2026, 1 + n % 6, 10)), status=['confirmada', 'pendente', 'cancelada'][n % 3])
+        with self.assertNumQueries(9):
+            self.client.get(self.URL)

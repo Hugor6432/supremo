@@ -41,3 +41,8 @@ def exige_operador(request):
     # 403 para quem não é operador nem administrador
     if not eh_operador(request):
         raise PermissionDenied("Só operadores e administradores podem fazer isso.")
+
+
+def eh_administrador_completo(user):
+    # Superusuário com perfil de administrador: vê tudo no dashboard
+    return user.is_superuser and papel_do_usuario(user) == Perfil.ADMINISTRADOR

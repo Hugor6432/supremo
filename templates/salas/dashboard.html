@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block titulo %}Dashboard · Reserva de Salas{% endblock %}
+
+{% block conteudo %}
+<div class="page-head">
+    <div>
+        <h1><span class="ico-titulo">{% include "icones/grafico.html" %}</span>Dashboard</h1>
+        <p class="sub">{% if periodo_inicio or periodo_fim %}Período: {{ periodo_inicio|date:"d/m/Y"|default:"início" }} até {{ periodo_fim|date:"d/m/Y"|default:"hoje e depois" }}{% else %}Todas as reservas da organização{% endif %}</p>
+    </div>
+</div>
+
+<!-- Filtro de período -->
+<form method="get" class="painel mb-4" novalidate>
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">{% include "icones/alerta.html" %}<div>{{ form.non_field_errors }} O filtro não foi aplicado.</div></div>
+    {% endif %}
+    <div class="row g-3 align-items-end">
+        <div class="col-sm-6 col-md-4">
+            <label for="{{ form.inicio.id_for_label }}" class="form-label">De</label>
+            {{ form.inicio }}
+            {% if form.inicio.errors %}<div class="erro-campo">{{ form.inicio.errors }} O filtro não foi aplicado.</div>{% endif %}
+        </div>
+        <div class="col-sm-6 col-md-4">
+            <label for="{{ form.fim.id_for_label }}" class="form-label">Até</label>
+            {{ form.fim }}
+            {% if form.fim.errors %}<div class="erro-campo">{{ form.fim.errors }} O filtro não foi aplicado.</div>{% endif %}
+        </div>
+        <div class="col-md-4 barra-acoes">
+            <button type="submit" class="btn btn-primary">Filtrar</button>
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Limpar</a>
+        </div>
+    </div>
+</form>
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-xl-2"><div class="painel kpi"><span class="kpi-rotulo">{% include "icones/calendario.html" %} Total</span><span class="kpi-valor">{{ kpis.total }}</span></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="painel kpi kpi-confirmada"><span class="kpi-rotulo">{% include "icones/check.html" %} Confirmadas</span><span class="kpi-valor">{{ kpis.confirmadas }}</span></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="painel kpi kpi-pendente"><span class="kpi-rotulo">{% include "icones/relogio.html" %} Pendentes</span><span class="kpi-valor">{{ kpis.pendentes }}</span></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="painel kpi kpi-cancelada"><span class="kpi-rotulo">{% include "icones/fechar.html" %} Canceladas</span><span class="kpi-valor">{{ kpis.canceladas }}</span></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="painel kpi"><span class="kpi-rotulo">{% include "icones/pessoas.html" %} Pessoas</span><span class="kpi-valor">{{ kpis.pessoas }}</span><small class="text-muted">reservaram no período</small></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="painel kpi kpi-destaque"><span class="kpi-rotulo">{% include "icones/calendario.html" %} Esta semana</span><span class="kpi-valor">{{ kpis.semana }}</span><small>reservas de seg. a dom.</small></div></div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Ranking -->
+    <div class="col-lg-7">
+        <div class="painel h-100">
+            <div class="painel-titulo">{% include "icones/sala.html" %} Salas mais reservadas</div>
+            <div class="table-responsive">
+                <table class="tabela">
+                    <thead><tr><th>#</th><th>Sala</th><th class="text-end">Reservas</th></tr></thead>
+                    <tbody>
+                        {% for linha in ranking %}
+                        <tr>
+                            <td class="posicao">{{ forloop.counter }}</td>
+                            <td><a href="{% url 'detalhes_sala' linha.sala_id %}">{{ linha.sala }}</a></td>
+                            <td class="text-end fw-semibold">{{ linha.total }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center text-muted py-4">Sem dados no período</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="small text-muted mb-0 mt-2">Não conta as reservas canceladas.</p>
+        </div>
+    </div>
+
+    <!-- Distribuição por status -->
+    <div class="col-lg-5">
+        <div class="painel h-100">
+            <div class="painel-titulo">{% include "icones/info.html" %} Reservas por status</div>
+            <ul class="distribuicao">
+                {% for item in por_status %}
+                <li class="dist-{{ item.status }}">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="status status-{{ item.status }}">{{ item.rotulo }}</span>
+                        <span class="fw-semibold">{{ item.total }} <small class="text-muted fw-normal">({{ item.percentual }}%)</small></span>
+                    </div>
+                    <div class="barra"><span style="width: {{ item.percentual }}%"></span></div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+{% if completo %}
+<!-- Reservas por mês (só administrador) -->
+<div class="painel">
+    <div class="painel-titulo">{% include "icones/grafico.html" %} Reservas por mês</div>
+    {% if por_mes %}
+    <div class="grafico"><canvas id="grafico-por-mes" aria-label="Gráfico de reservas por mês" role="img"></canvas></div>
+    {{ por_mes|json_script:"dados-por-mes" }}
+    {% else %}
+    <p class="text-muted text-center py-4 mb-0">Sem dados no período</p>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if completo and por_mes %}
+<script src="{% static 'js/chart.umd.js' %}"></script>
+<script src="{% static 'js/dashboard.js' %}"></script>
+{% endif %}
+{% endblock %}

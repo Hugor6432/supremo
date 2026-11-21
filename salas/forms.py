@@ -107,3 +107,22 @@ class ReservaCriacaoForm(ReservaForm):
         for campo, mensagem in erros:
             self.add_error(campo, mensagem)
         return cleaned_data
+
+
+class PeriodoForm(forms.Form):
+    # Filtro do dashboard; os dois dias entram no período
+    inicio = forms.DateField(
+        required=False, label="De",
+        widget=forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),
+    )
+    fim = forms.DateField(
+        required=False, label="Até",
+        widget=forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        inicio, fim = cleaned_data.get('inicio'), cleaned_data.get('fim')
+        if inicio and fim and fim < inicio:
+            raise forms.ValidationError("A data final não pode ser antes da data inicial.")
+        return cleaned_data
