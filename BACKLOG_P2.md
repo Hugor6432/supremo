@@ -37,9 +37,9 @@ Nenhuma tarefa é maior do que uma sessão de trabalho.
 
 ## Pilar 4: Dashboard · rótulo `dashboard`
 
-- [ ] Tela de dashboard com métricas da organização
-- [ ] Salas mais reservadas (`values` + `annotate(Count)`)
-- [ ] Reservas por status e reservas da semana
+- [x] Tela de dashboard com métricas da organização
+- [x] Salas mais reservadas (`values` + `annotate(Count)`)
+- [x] Reservas por status e reservas da semana
 - [ ] Taxa de ocupação por sala
 
 ## Melhorias da P1 · rótulo `melhorias-p1`

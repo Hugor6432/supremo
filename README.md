@@ -26,6 +26,8 @@ Para entrar pela Browsable API, use o link "Log in" no canto da página (`/api-a
 Ações de reserva (`POST`): `/api/reservas/<id>/cancelar/`, `/api/reservas/<id>/aprovar/` e
 `/api/reservas/<id>/recusar/`. Os campos `status` e `criado_por` são só leitura.
 
+Dashboard (`GET`): `/api/dashboard/?inicio=AAAA-MM-DD&fim=AAAA-MM-DD` (veja a seção Dashboard).
+
 Arquivos: `salas/serializers.py`, `salas/api_views.py` e `salas/api_urls.py`.
 
 Validações da API (respondem `400` com a mensagem em JSON):
@@ -185,3 +187,93 @@ Quem não pode recebe **403**. A regra das 24 horas aparece como mensagem de err
 | 21 | API: horário cancelado | Fica livre (antes 400, depois 201) | ✅ |
 | 22 | API: isolamento entre organizações | 404 e 400 para dados de outra organização | ✅ |
 | 23 | Migração dos papéis | Perfis existentes viram administrador | ✅ |
+
+---
+
+## Dashboard
+
+Tela em `/dashboard/` com os números da organização do usuário. As métricas ficam em
+`salas/dashboard.py` e partem todas de uma base só: reservas da organização, sem as excluídas
+(`excluida_em` nulo) e no período escolhido. A tela, a exportação e a API usam as mesmas funções.
+
+### As perguntas do dono e a métrica de cada uma
+
+| # | Pergunta | Métrica | Como é calculada |
+|---|---|---|---|
+| 1 | Quanto a organização reserva? | Cartões: total, confirmadas, pendentes, canceladas, pessoas que reservaram e reservas desta semana | Um `aggregate` com `Count(filter=Q(...))` e `Count('criado_por', distinct=True)`; a semana (segunda a domingo, confirmadas e pendentes) não depende do filtro de período |
+| 2 | Quais salas são mais usadas? | Ranking das 5 salas mais reservadas | `values('sala')` + `annotate(Count)`, sem as canceladas |
+| 3 | Como as reservas evoluem mês a mês? | Gráfico de barras por mês (Chart.js) | `TruncMonth('data_inicio')` + `annotate(Count)` + `order_by` no fim, mês em MM/AAAA |
+| 4 | Quantas reservas ficam confirmadas, pendentes ou canceladas? | Distribuição por status, com as cores das etiquetas | `values('status')` + `annotate(Count)` |
+
+**Filtro de período:** `PeriodoForm` com `inicio` e `fim` (opcionais, os dois dias entram). Data
+inválida ou fim antes do início mostram o erro no formulário e o filtro é ignorado, sem erro 500
+(na API, resposta `400` com os erros).
+
+**Gráfico:** Chart.js 4.4.6 servido pelo próprio projeto (`static/js/chart.umd.js`), código em
+`static/js/dashboard.js` e dados passados com `json_script`.
+
+### Quem vê o quê
+
+| Recurso | Usuário | Funcionário | Administrador |
+|---|:---:|:---:|:---:|
+| Link "Dashboard" na barra | ❌ | ✅ | ✅ |
+| Cartões, ranking e distribuição por status | ❌ (403) | ✅ | ✅ |
+| Gráfico de reservas por mês | ❌ | ❌ | ✅ |
+| Exportar CSV (`/dashboard/exportar/`) | ❌ (403) | ❌ (403) | ✅ |
+| API `/api/dashboard/` | ❌ (403) | ✅ sem a série por mês | ✅ completa |
+
+Administrador aqui é o superusuário com perfil de administrador. Quem tem papel administrador sem
+ser superusuário é tratado como funcionário, igual ao Admin.
+
+**Exportar CSV:** `reservas.csv` em UTF-8 com BOM e `;` como separador (abre direto no Excel em
+português), com as colunas sala, reservado por, e-mail, início, fim e status. Respeita o período.
+Células que começam com `=`, `+`, `-`, `@`, tabulação ou quebra de linha ganham um apóstrofo na frente
+para o Excel não executar fórmulas.
+
+### Desempenho
+
+Medido com `CaptureQueriesContext` antes e depois:
+
+| Tela | Antes (2 salas → 6 salas) | Depois | Correção |
+|---|---|---|---|
+| Lista de salas | 12 → 24 consultas | 7, fixo | `prefetch_related('recursos')` |
+| Lista de reservas | 17 → 41 consultas | 6, fixo | `prefetch_related('sala__recursos')` |
+| Detalhes da sala | 7 | 7, fixo | já usava `select_related` |
+| Dashboard | (novo) | 9, fixo | uma consulta por métrica |
+| Exportar CSV | (novo) | 5, fixo | `select_related('sala', 'criado_por')` |
+
+Índices novos em `Reserva`: `data_inicio` e `status` (migração `0009_indices_reserva`). Os números
+ficam travados com `assertNumQueries` nos testes.
+
+### Testes do dashboard: resultado
+
+`python manage.py check` e `makemigrations --check` sem pendências.
+`python manage.py test salas`: **105 de 105 testes passaram** (25 deles do dashboard e do desempenho).
+
+| # | Cenário | Esperado | Resultado |
+|---|---|---|---|
+| 1 | Org A com 3 reservas e org B com 5 | A vê 3 | ✅ |
+| 2 | Filtro de período (início, fim e os dois) | Conta só as reservas do período, dias inclusos | ✅ |
+| 3 | Reservas excluídas | Não entram em nenhuma métrica | ✅ |
+| 4 | Dashboard sem dados | Abre com zeros e "Sem dados no período" | ✅ |
+| 5 | Data inválida ou fim antes do início na URL | 200 com erro no formulário, filtro ignorado | ✅ |
+| 6 | Números, ranking (5 primeiras, sem canceladas), distribuição e série por mês | Valores conferidos um a um | ✅ |
+| 7 | Reservas desta semana | Só confirmadas e pendentes de segunda a domingo, sem depender do período | ✅ |
+| 8 | Funcionário (e administrador sem superusuário) | Vê o dashboard, sem gráfico e sem exportar (403) | ✅ |
+| 9 | Usuário comum | 403 na tela, na exportação e na API | ✅ |
+| 10 | CSV | Colunas certas, só da organização, sem excluídas, respeita o período | ✅ |
+| 11 | CSV com `=`, `+`, `-` e `@` | Células protegidas com apóstrofo | ✅ |
+| 12 | API do dashboard | Mesmos números da tela; funcionário sem série; data inválida 400 | ✅ |
+| 13 | `assertNumQueries` | Listas, detalhes da sala, dashboard e CSV com número fixo de consultas | ✅ |
+
+### Conferência de isolamento entre organizações
+
+Todas as métricas partem de `base()`, que filtra `organizacao=org_atual(request)` antes de qualquer
+outra coisa; a tela, o CSV e a API não fazem consultas fora dela.
+
+| Verificação | Esperado | Resultado |
+|---|---|---|
+| Dashboard da org A com dados nas duas organizações | Só os números da A; salas da B não aparecem no ranking | ✅ |
+| CSV do administrador da org A | Nenhuma linha da org B | ✅ |
+| API com administrador da org B | Só as reservas da B | ✅ |
+| Reservas desta semana | Reserva da org B na mesma semana não entra | ✅ |
