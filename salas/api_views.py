@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.utils import eh_administrador_completo, org_atual
+from core.utils import eh_administrador_completo, eh_operador_usuario, org_atual
 from . import atividades, dashboard as metricas, recorrencia
 from .models import Sala, Recurso, Recorrencia, Reserva
 from .forms import PeriodoForm
@@ -23,6 +23,15 @@ class DaOrganizacaoMixin:
 
     def perform_create(self, serializer):
         serializer.save(organizacao=org_atual(self.request))
+
+
+class ReservasVisiveisMixin(DaOrganizacaoMixin):
+    # Usuário comum vê só as próprias reservas; as de outras pessoas dão 404
+    def get_queryset(self):
+        reservas = super().get_queryset()
+        if not eh_operador_usuario(self.request.user):
+            reservas = reservas.filter(criado_por=self.request.user)
+        return reservas
 
 
 class SoOperadorEscreveMixin:
@@ -99,7 +108,7 @@ class RecorrenciaDetail(SoOperadorEscreveMixin, DaOrganizacaoMixin, generics.Ret
 
 # ===== RESERVAS =====
 
-class ReservaListCreate(DaOrganizacaoMixin, generics.ListCreateAPIView):
+class ReservaListCreate(ReservasVisiveisMixin, generics.ListCreateAPIView):
     model = Reserva
     serializer_class = ReservaSerializer
 
@@ -135,7 +144,7 @@ class ReservaListCreate(DaOrganizacaoMixin, generics.ListCreateAPIView):
         atividades.reserva(self.request.user, 'criou', reserva)
 
 
-class ReservaDetail(DaOrganizacaoMixin, generics.RetrieveUpdateDestroyAPIView):
+class ReservaDetail(ReservasVisiveisMixin, generics.RetrieveUpdateDestroyAPIView):
     model = Reserva
     serializer_class = ReservaSerializer
     permission_classes = [IsAuthenticated, PodeAlterarReserva]
@@ -152,7 +161,7 @@ class ReservaDetail(DaOrganizacaoMixin, generics.RetrieveUpdateDestroyAPIView):
         atividades.reserva(self.request.user, 'excluiu', instance)
 
 
-class ReservaAcaoBase(DaOrganizacaoMixin, generics.GenericAPIView):
+class ReservaAcaoBase(ReservasVisiveisMixin, generics.GenericAPIView):
     # Base das ações POST que só mudam o status
     model = Reserva
     serializer_class = ReservaSerializer

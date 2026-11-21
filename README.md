@@ -127,7 +127,10 @@ O papel é escolhido no Admin, na parte **Organização do usuário** da tela do
 
 | Ação | Usuário | Operador | Administrador |
 |---|:---:|:---:|:---:|
-| Ver salas e reservas da própria organização | ✅ | ✅ | ✅ |
+| Ver as salas da própria organização | ✅ | ✅ | ✅ |
+| Ver as próprias reservas (lista "Minhas reservas", detalhes e API) | ✅ | ✅ | ✅ |
+| Ver reservas de outras pessoas da organização (lista, detalhes e API) | ❌ (404) | ✅ | ✅ |
+| Ver nos detalhes da sala quem reservou cada horário | ❌ só "Ocupado" | ✅ nome e e-mail | ✅ nome e e-mail |
 | Criar reserva | ✅ | ✅ | ✅ |
 | Editar / cancelar as **próprias** reservas | ✅ só com mais de 24h | ✅ | ✅ |
 | Editar / cancelar reservas de **outras pessoas** | ❌ | ✅ | ✅ |

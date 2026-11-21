@@ -2,7 +2,7 @@
 
 {% block conteudo %}
 <div class="page-head">
-    <h1><span class="ico-titulo">{% include "icones/calendario.html" %}</span>Reservas</h1>
+    <h1><span class="ico-titulo">{% include "icones/calendario.html" %}</span>{% if eh_operador %}Reservas{% else %}Minhas reservas{% endif %}</h1>
     <a href="{% url 'criar_reserva' %}" class="btn btn-primary btn-lg">{% include "icones/mais.html" %}Nova Reserva</a>
 </div>
 

@@ -61,14 +61,27 @@
             <ul class="proximas">
                 {% for reserva in proximas %}
                 <li>
+                    {% if eh_operador or reserva.criado_por_id == user.id %}
                     <a href="{% url 'detalhes_reserva' reserva.id %}" class="proxima">
                         <span class="proxima-data">
                             <strong>{{ reserva.data_inicio|date:"d/m/Y" }}</strong>
                             <small>{{ reserva.data_inicio|date:"H:i" }} – {% if reserva.data_fim|date:"d/m/Y" != reserva.data_inicio|date:"d/m/Y" %}{{ reserva.data_fim|date:"d/m/Y H:i" }}{% else %}{{ reserva.data_fim|date:"H:i" }}{% endif %}</small>
                         </span>
                         <span class="proxima-quem">{% include "icones/usuario.html" %} {{ reserva.responsavel_exibicao }}</span>
+                        {% if reserva.criado_por_id == user.id %}<span class="tag tag-sua">Sua reserva</span>{% endif %}
                         <span class="status status-{{ reserva.status }}">{{ reserva.get_status_display }}</span>
                     </a>
+                    {% else %}
+                    {# Usuário comum vê só que o horário está ocupado, sem quem reservou #}
+                    <div class="proxima proxima-ocupada">
+                        <span class="proxima-data">
+                            <strong>{{ reserva.data_inicio|date:"d/m/Y" }}</strong>
+                            <small>{{ reserva.data_inicio|date:"H:i" }} – {% if reserva.data_fim|date:"d/m/Y" != reserva.data_inicio|date:"d/m/Y" %}{{ reserva.data_fim|date:"d/m/Y H:i" }}{% else %}{{ reserva.data_fim|date:"H:i" }}{% endif %}</small>
+                        </span>
+                        <span class="proxima-quem"></span>
+                        <span class="status status-ocupado">Ocupado</span>
+                    </div>
+                    {% endif %}
                 </li>
                 {% endfor %}
             </ul>

@@ -10,7 +10,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from core.utils import eh_administrador_completo, org_atual, exige_operador
+from core.utils import eh_administrador_completo, eh_operador, org_atual, exige_operador
 from . import atividades, dashboard as metricas, recorrencia
 from .models import Sala, Recurso, Reserva
 from .forms import PeriodoForm, RecursoFormSet, ReservaCriacaoForm, ReservaForm, SalaForm
@@ -147,6 +147,14 @@ def deletar_sala(request, id):
 
 # ===== VIEWS DE RESERVAS =====
 
+def reservas_visiveis(request, org):
+    # Usuário comum enxerga só as próprias reservas; funcionário e administrador, todas da organização
+    reservas = Reserva.objects.filter(organizacao=org)
+    if not eh_operador(request):
+        reservas = reservas.filter(criado_por=request.user)
+    return reservas
+
+
 def _checa_dono(request, reserva):
     # 403 para quem tenta mexer em reserva de outra pessoa
     if not reserva.pode_mexer(request.user):
@@ -157,7 +165,7 @@ def _checa_dono(request, reserva):
 def lista_reservas(request):
     org = org_atual(request)
     reservas = (
-        Reserva.objects.filter(organizacao=org)
+        reservas_visiveis(request, org)
         .select_related('sala', 'recorrencia', 'criado_por')
         .prefetch_related('sala__recursos')
     )
@@ -211,7 +219,7 @@ def criar_reserva(request):
 @login_required
 def editar_reserva(request, id):
     org = org_atual(request)
-    reserva = get_object_or_404(Reserva, id=id, organizacao=org)
+    reserva = get_object_or_404(reservas_visiveis(request, org), id=id)
     _checa_dono(request, reserva)
     # Checa antes do form, que altera a instância ao validar
     bloqueada = not reserva.pode_alterar(request.user)
@@ -239,7 +247,7 @@ def editar_reserva(request, id):
 @login_required
 def cancelar_reserva(request, id):
     org = org_atual(request)
-    reserva = get_object_or_404(Reserva, id=id, organizacao=org)
+    reserva = get_object_or_404(reservas_visiveis(request, org), id=id)
     _checa_dono(request, reserva)
     erro = None
     if reserva.status == 'cancelada':
@@ -260,7 +268,7 @@ def cancelar_reserva(request, id):
 @require_POST
 def cancelar_serie(request, id):
     org = org_atual(request)
-    reserva = get_object_or_404(Reserva, id=id, organizacao=org)
+    reserva = get_object_or_404(reservas_visiveis(request, org), id=id)
     _checa_dono(request, reserva)
     if reserva.recorrencia is None:
         messages.error(request, 'Esta reserva não faz parte de uma série.')
@@ -330,7 +338,7 @@ def deletar_reserva(request, id):
 @login_required
 def detalhes_reserva(request, id):
     org = org_atual(request)
-    reserva = get_object_or_404(Reserva, id=id, organizacao=org)
+    reserva = get_object_or_404(reservas_visiveis(request, org), id=id)
     contexto = {'reserva': reserva, 'pode_alterar': reserva.pode_alterar(request.user)}
     return render(request, 'salas/detalhes_reserva.html', contexto)
 

@@ -12,7 +12,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from core.models import Organizacao, Perfil, RegistroAtividade
-from .models import Recurso, Sala, Reserva
+from .models import Recorrencia, Recurso, Sala, Reserva
 
 
 class Base(TestCase):
@@ -145,10 +145,13 @@ class TelasReservasTest(Base):
     def test_usuario_nao_cancela_nem_edita_reserva_de_outro(self):
         reserva = self.reserva(self.outro, 48)
         self.client.force_login(self.usuario)
-        self.assertEqual(self.client.post(reverse('cancelar_reserva', args=[reserva.id])).status_code, 403)
-        self.assertEqual(self.client.get(reverse('editar_reserva', args=[reserva.id])).status_code, 403)
+        self.assertEqual(self.client.post(reverse('cancelar_reserva', args=[reserva.id])).status_code, 404)
+        self.assertEqual(self.client.get(reverse('editar_reserva', args=[reserva.id])).status_code, 404)
+        self.assertEqual(self.client.post(reverse('editar_reserva', args=[reserva.id]), self.dados_form(self.sala, 72)).status_code, 404)
+        self.assertEqual(self.client.get(reverse('detalhes_reserva', args=[reserva.id])).status_code, 404)
         reserva.refresh_from_db()
         self.assertEqual(reserva.status, 'confirmada')
+        self.assertEqual(reserva.data_inicio, Reserva.objects.get(id=reserva.id).data_inicio)
 
     def test_operador_cancela_com_menos_de_24h(self):
         reserva = self.reserva(self.usuario, 2)
@@ -250,7 +253,7 @@ class ApiTest(Base):
         resp = api.post(f'/api/reservas/{em_cima.id}/cancelar/')
         self.assertEqual(resp.status_code, 403)
         self.assertEqual(resp.data['detail'], Reserva.MSG_24H)
-        self.assertEqual(api.post(f'/api/reservas/{de_outro.id}/cancelar/').status_code, 403)
+        self.assertEqual(api.post(f'/api/reservas/{de_outro.id}/cancelar/').status_code, 404)
         self.assertEqual(self.como(self.operador).post(f'/api/reservas/{em_cima.id}/cancelar/').status_code, 200)
         statuses = dict(Reserva.objects.values_list('id', 'status'))
         self.assertEqual(statuses, {propria.id: 'cancelada', em_cima.id: 'cancelada', de_outro.id: 'confirmada'})
@@ -851,7 +854,8 @@ class DetalhesSalaTest(Base):
         self.assertContains(resp, 'Projetor')
         self.assertContains(resp, 'Full HD')
         self.assertEqual(list(resp.context['proximas']), [futura, pendente])
-        self.assertContains(resp, 'outro · sem e-mail')
+        self.assertNotContains(resp, 'outro · sem e-mail')
+        self.assertContains(resp, 'Ocupado', count=2)
         self.assertContains(resp, timezone.localtime(futura.data_inicio).strftime('%d/%m/%Y'))
         for fora in [cancelada, passada, excluida]:
             self.assertNotIn(fora, resp.context['proximas'])
@@ -1060,7 +1064,7 @@ class RecorrenciaTest(Base):
         self.cria_serie(self.usuario)
         primeira = Reserva.objects.order_by('data_inicio').first()
         self.client.force_login(self.outro)
-        self.assertEqual(self.client.post(reverse('cancelar_serie', args=[primeira.id])).status_code, 403)
+        self.assertEqual(self.client.post(reverse('cancelar_serie', args=[primeira.id])).status_code, 404)
         self.client.force_login(self.usuario_b)
         self.assertEqual(self.client.post(reverse('cancelar_serie', args=[primeira.id])).status_code, 404)
         self.assertEqual(self.client.get(reverse('detalhes_reserva', args=[primeira.id])).status_code, 404)
@@ -1428,3 +1432,110 @@ class DashboardApiTest(DashboardBase):
         self.assertIn('inicio', resp.data['erros'])
         resp = self.api(self.chefe, inicio='2026-03-10', fim='2026-03-01')
         self.assertEqual(resp.status_code, 400)
+
+
+# ===== USUÁRIO COMUM VÊ SÓ AS PRÓPRIAS RESERVAS =====
+
+class ReservasPropriasTest(Base):
+    def setUp(self):
+        self.joao = User.objects.create_user('joao', email='joao@email.com', password='x')
+        Perfil.objects.create(usuario=self.joao, organizacao=self.org_a, papel=Perfil.USUARIO)
+        self.minha = self.reserva(self.usuario, 48)
+        self.do_joao = self.reserva(self.joao, 72)
+
+    def test_lista_mostra_so_as_proprias_para_usuario_comum(self):
+        self.client.force_login(self.usuario)
+        resp = self.client.get(reverse('lista_reservas'))
+        self.assertEqual(list(resp.context['reservas']), [self.minha])
+        self.assertContains(resp, 'Minhas reservas')
+        self.assertNotContains(resp, 'joao')
+        # Funcionário e administrador continuam vendo todas
+        for user in [self.operador, self.admin]:
+            self.client.force_login(user)
+            resp = self.client.get(reverse('lista_reservas'))
+            self.assertEqual(set(resp.context['reservas']), {self.minha, self.do_joao})
+            self.assertNotContains(resp, 'Minhas reservas')
+
+    def test_reserva_de_outro_da_404_em_todas_as_telas(self):
+        serie_do_joao = self.reserva(self.joao, 96)
+        Reserva.objects.filter(pk=serie_do_joao.pk).update(
+            recorrencia=Recorrencia.objects.create(organizacao=self.org_a, frequencia='semanal',
+                                                   data_inicio=timezone.localdate()))
+        self.client.force_login(self.usuario)
+        for nome in ['detalhes_reserva', 'editar_reserva', 'cancelar_reserva']:
+            self.assertEqual(self.client.get(reverse(nome, args=[self.do_joao.id])).status_code, 404, nome)
+        self.assertEqual(self.client.post(reverse('cancelar_reserva', args=[self.do_joao.id])).status_code, 404)
+        self.assertEqual(self.client.post(reverse('cancelar_serie', args=[serie_do_joao.id])).status_code, 404)
+        self.assertEqual(set(Reserva.objects.values_list('status', flat=True)), {'confirmada'})
+        # A própria continua abrindo
+        self.assertEqual(self.client.get(reverse('detalhes_reserva', args=[self.minha.id])).status_code, 200)
+        # Funcionário abre a do joão
+        self.client.force_login(self.operador)
+        self.assertEqual(self.client.get(reverse('detalhes_reserva', args=[self.do_joao.id])).status_code, 200)
+
+    def test_api_mostra_so_as_proprias(self):
+        api = APIClient()
+        api.force_authenticate(self.usuario)
+        self.assertEqual([r['id'] for r in api.get('/api/reservas/').data], [self.minha.id])
+        self.assertEqual(api.get(f'/api/reservas/{self.minha.id}/').status_code, 200)
+        self.assertEqual(api.get(f'/api/reservas/{self.do_joao.id}/').status_code, 404)
+        self.assertEqual(api.patch(f'/api/reservas/{self.do_joao.id}/', {'descricao': 'x'}).status_code, 404)
+        self.assertEqual(api.post(f'/api/reservas/{self.do_joao.id}/cancelar/').status_code, 404)
+        api.force_authenticate(self.operador)
+        self.assertEqual({r['id'] for r in api.get('/api/reservas/').data}, {self.minha.id, self.do_joao.id})
+        self.assertEqual(api.get(f'/api/reservas/{self.do_joao.id}/').status_code, 200)
+
+    def test_pagina_da_sala_esconde_quem_reservou(self):
+        self.client.force_login(self.usuario)
+        resp = self.client.get(reverse('detalhes_sala', args=[self.sala.id]))
+        self.assertContains(resp, 'Ocupado', count=1)
+        self.assertNotContains(resp, 'joao')
+        self.assertNotContains(resp, 'joao@email.com')
+        self.assertNotContains(resp, reverse('detalhes_reserva', args=[self.do_joao.id]))
+        # A do próprio usuário aparece normal, marcada
+        self.assertContains(resp, 'Sua reserva', count=1)
+        self.assertContains(resp, 'usuario · sem e-mail')
+        self.assertContains(resp, reverse('detalhes_reserva', args=[self.minha.id]))
+        # Horário ocupado aparece com data e hora
+        inicio = timezone.localtime(self.do_joao.data_inicio)
+        self.assertContains(resp, inicio.strftime('%d/%m/%Y'))
+        self.assertContains(resp, inicio.strftime('%H:%M'))
+        # Funcionário vê nome e e-mail
+        self.client.force_login(self.operador)
+        resp = self.client.get(reverse('detalhes_sala', args=[self.sala.id]))
+        self.assertContains(resp, 'joao · joao@email.com')
+        self.assertNotContains(resp, 'Ocupado')
+
+    def test_conflito_com_reserva_de_outro_continua_bloqueando(self):
+        self.client.force_login(self.usuario)
+        dados = {'sala': self.sala.id, 'data_inicio': self.local(self.do_joao.data_inicio),
+                 'data_fim': self.local(self.do_joao.data_fim), 'descricao': ''}
+        resp = self.client.post(reverse('criar_reserva'), dados, follow=True)
+        self.assertContains(resp, 'Conflito')
+        self.assertNotContains(resp, 'joao')
+        self.assertEqual(Reserva.objects.count(), 2)
+        # Na série, a data em conflito aparece sem o nome de quem reservou
+        ate = (timezone.localtime(self.do_joao.data_inicio) + timedelta(days=14)).date()
+        resp = self.client.post(reverse('criar_reserva'), dados | {'repetir': 'semanal', 'a_cada': 1, 'ate': ate.isoformat()})
+        self.assertContains(resp, 'Estas datas já estão ocupadas')
+        self.assertNotContains(resp, 'joao')
+        # Na API também
+        api = APIClient()
+        api.force_authenticate(self.usuario)
+        resp = api.post('/api/reservas/', {'sala': self.sala.id, 'data_inicio': self.do_joao.data_inicio.isoformat(),
+                                           'data_fim': self.do_joao.data_fim.isoformat()})
+        self.assertEqual(resp.status_code, 400)
+        self.assertNotIn('joao', str(resp.data))
+        self.assertEqual(Reserva.objects.count(), 2)
+
+    def test_consultas_do_usuario_comum_nao_crescem(self):
+        self.client.force_login(self.usuario)
+        for url, consultas in [(reverse('lista_reservas'), 6), (reverse('detalhes_sala', args=[self.sala.id]), 7)]:
+            with self.assertNumQueries(consultas):
+                self.client.get(url)
+        for n in range(4):
+            self.reserva(self.usuario, 100 + 30 * n)
+            self.reserva(self.joao, 110 + 30 * n)
+        for url, consultas in [(reverse('lista_reservas'), 6), (reverse('detalhes_sala', args=[self.sala.id]), 7)]:
+            with self.assertNumQueries(consultas):
+                self.client.get(url)
