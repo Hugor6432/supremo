@@ -4,7 +4,7 @@ from .models import RegistroAtividade
 
 
 def registra(usuario, acao, objeto, descricao, organizacao=None):
-    # Grava uma linha no histórico; a organização vem do objeto quando não é informada
+    # A organização vem do objeto quando não é informada
     return RegistroAtividade.objects.create(
         usuario=usuario if getattr(usuario, 'is_authenticated', False) else None,
         organizacao=organizacao or getattr(objeto, 'organizacao', None),

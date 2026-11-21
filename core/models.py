@@ -74,7 +74,6 @@ class Perfil(models.Model):
 
 
 class RegistroAtividade(models.Model):
-    # Histórico do que cada pessoa fez no site e na API
     ACOES = [
         ('criou', 'Criou'),
         ('editou', 'Editou'),

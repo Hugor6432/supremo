@@ -15,7 +15,6 @@ def org_atual(request):
 
 
 def papel_do_usuario(user):
-    # Papel do usuário, ou None se ele não tiver perfil
     perfil = getattr(user, 'perfil', None)
     return perfil.papel if perfil else None
 
@@ -38,7 +37,6 @@ def eh_administrador(request):
 
 
 def exige_operador(request):
-    # 403 para quem não é operador nem administrador
     if not eh_operador(request):
         raise PermissionDenied("Só operadores e administradores podem fazer isso.")
 

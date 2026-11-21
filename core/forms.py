@@ -20,7 +20,6 @@ class CadastroForm(UserCreationForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Com uma organização só, ela já vem selecionada
         organizacoes = self.fields['organizacao'].queryset
         if organizacoes.count() == 1:
             self.fields['organizacao'].initial = organizacoes.first().pk

@@ -1,77 +1,42 @@
 # Melhorias da P1
 
-Revisão do projeto entregue na P1 antes de começar a P2.
-Cada item aponta um ponto frágil e o que deve ser feito.
+Pontos frágeis encontrados na revisão da P1 e a situação de cada um.
+
+| Item | Situação |
+|---|---|
+| 1. Conflito de horário no Admin gera erro 500 | Pendente |
+| 2. Regras de negócio espalhadas | Em parte |
+| 3. `tem_conflito()` percorre as reservas em Python | Pendente |
+| 4. Recurso preso a uma sala e responsável como texto | Em parte |
+| 5. Configurações sensíveis no código e telas sem login | Em parte |
+| 6. Senha editável no Admin salva sem criptografia | Corrigido |
 
 ## 1. Conflito de horário no Admin gera erro 500
 
-**Onde:** `salas/admin.py`, método `ReservaAdmin.save_model`.
+`ReservaAdmin.save_model` ainda faz `raise ValueError` quando há conflito, e o Admin mostra uma
+página de erro. Falta mover a checagem para um `clean()`, para o aviso aparecer no formulário.
 
-**Problema:** quando há conflito, o código faz `raise ValueError(...)`. No Admin isso aparece como
-uma página de erro do servidor, e não como uma mensagem de validação no formulário.
+## 2. Regras de negócio espalhadas
 
-**Correção:** mover a checagem de conflito para um lugar que gere `ValidationError`
-(o `clean()` do model ou do form do Admin), para a mensagem aparecer em vermelho no formulário.
-
-## 2. Regras de negócio espalhadas em vários lugares
-
-**Onde:** `salas/forms.py` (fim depois do início), `salas/views.py` e `salas/admin.py` (conflito).
-
-**Problema:** a regra "fim depois do início" só vale no `ReservaForm`; o Admin e a futura API
-não passam por ela. A checagem de conflito é chamada à mão em três lugares diferentes.
-
-**Correção:** deixar cada regra em um lugar principal e reaproveitar esse lugar no form,
-no Admin e no serializer da API.
+As regras de papel, dono e 24 horas ficaram no model (`pode_mexer` e `pode_alterar`) e são usadas
+pelas telas e pela API. A regra "fim depois do início" ainda está repetida no form e no serializer,
+e o Admin não passa por ela.
 
 ## 3. `tem_conflito()` percorre as reservas em Python
 
-**Onde:** `salas/models.py`, `Reserva.tem_conflito`.
-
-**Problema:** o método carrega todas as reservas da sala e compara uma por uma num `for`.
-Com muitas reservas, fica lento.
-
-**Correção:** fazer a comparação no banco, com uma única consulta:
+O método ainda carrega as reservas da sala e compara uma por uma. Falta trocar por uma consulta só:
 `filter(data_inicio__lt=self.data_fim, data_fim__gt=self.data_inicio).exists()`.
 
-## 4. Recurso preso a uma sala e responsável como texto livre
+## 4. Recurso preso a uma sala e responsável como texto
 
-**Onde:** `salas/models.py`, models `Recurso` e `Reserva`.
-
-**Problema:** cada `Recurso` tem FK para uma única sala, então "Projetor" é cadastrado de novo em
-cada sala. Já o `responsavel` da reserva é um texto livre, sem ligação com o usuário que fez a reserva.
-
-**Correção:** avaliar transformar `Recurso` em catálogo com `ManyToManyField` em `Sala`, e trocar
-`responsavel` por uma FK para `User` quando entrarem os perfis de usuário.
+O dono da reserva agora é uma FK para `User` (`criado_por`), e o responsável é preenchido com o
+nome de quem reservou. O `Recurso` continua ligado a uma única sala.
 
 ## 5. Configurações sensíveis no código e telas sem login
 
-**Onde:** `reservas/settings.py` e `salas/views.py`.
-
-**Problema:** `SECRET_KEY` fixa no código, `DEBUG = True` e `ALLOWED_HOSTS = ['*']`. Além disso,
-qualquer pessoa sem login consegue criar, editar e apagar salas e reservas.
-
-**Correção:** ler `SECRET_KEY` e `DEBUG` de variáveis de ambiente (`.env` fora do Git) e exigir
-login em todas as telas (`@login_required`), o que já é necessário para a multi-organização.
+Todas as telas exigem login. `SECRET_KEY`, `DEBUG` e `ALLOWED_HOSTS` continuam fixos em
+`settings.py`; falta lê-los de variáveis de ambiente.
 
 ## 6. Senha editável no Admin salva sem criptografia
 
-**Onde:** `salas/admin.py`, `UsuarioForm`.
-
-**Problema:** o campo `password` aparecia como texto editável. Uma senha digitada ali era salva
-sem hash, e o usuário não conseguia mais entrar.
-
-**Correção:** declarar `password = ReadOnlyPasswordHashField(...)`. O campo fica só leitura e a troca
-de senha passa pelo formulário próprio do Admin (link "este formulário").
-
----
-
-## Situação
-
-| Item | Status |
-|---|---|
-| 1. Erro 500 no Admin | Pendente |
-| 2. Regras espalhadas | Pendente |
-| 3. `tem_conflito()` em Python | Pendente |
-| 4. Recurso e responsável | Pendente |
-| 5. Configurações e login | Em andamento: login exigido em todas as telas; falta `.env` |
-| 6. Senha editável no Admin | Corrigido |
+Corrigido: o campo de senha ficou só leitura e a troca passa pelo formulário próprio do Admin.

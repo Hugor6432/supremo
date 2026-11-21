@@ -6,10 +6,8 @@ from django.contrib.auth.models import User, Group
 from core.models import Organizacao, Perfil
 from .models import Sala, Recurso, Reserva, Recorrencia
 
-# Remove Grupos do admin
 admin.site.unregister(Group)
 
-# Unregistar User primeiro
 admin.site.unregister(User)
 
 class TipoUsuarioCampos(forms.Form):
@@ -71,7 +69,6 @@ class TipoUsuarioCampos(forms.Form):
         )
 
 
-# Formulário de edição do usuário
 class UsuarioForm(TipoUsuarioCampos, forms.ModelForm):
     password = ReadOnlyPasswordHashField(label="Senha", help_text='Para trocar a senha, use <a href="../password/">este formulário</a>.')
 
@@ -93,7 +90,7 @@ class UsuarioForm(TipoUsuarioCampos, forms.ModelForm):
         return user
 
 
-# Formulário de criação: tudo numa tela só, senha com criptografia
+# Criação: tudo numa tela só, senha com criptografia
 class UsuarioCriacaoForm(TipoUsuarioCampos, UserCreationForm):
     class Meta(UserCreationForm.Meta):
         model = User
@@ -108,7 +105,6 @@ class UsuarioCriacaoForm(TipoUsuarioCampos, UserCreationForm):
         return user
 
 
-# Customizar User Admin
 class UsuarioAdmin(BaseUserAdmin):
     form = UsuarioForm
     add_form = UsuarioCriacaoForm

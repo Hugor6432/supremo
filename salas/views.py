@@ -29,15 +29,13 @@ def lista_salas(request):
 
     salas = Sala.objects.filter(organizacao=org)
 
-    # Busca por texto: procura no nome OU na descrição da sala (Q = desafio extra)
+    # Busca no nome OU na descrição da sala
     if busca:
         salas = salas.filter(Q(nome__icontains=busca) | Q(descricao__icontains=busca))
 
-    # Filtro por capacidade mínima
     if capacidade.isdigit():
         salas = salas.filter(capacidade__gte=int(capacidade))
 
-    # Filtro por recurso disponível na sala
     if recurso:
         salas = salas.filter(recursos__nome=recurso)
 
@@ -156,7 +154,6 @@ def reservas_visiveis(request, org):
 
 
 def _checa_dono(request, reserva):
-    # 403 para quem tenta mexer em reserva de outra pessoa
     if not reserva.pode_mexer(request.user):
         raise PermissionDenied(reserva.MSG_NAO_E_DONO)
 

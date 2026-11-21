@@ -14,7 +14,6 @@
     {% endif %}
 </div>
 
-<!-- Filtro de período -->
 <form method="get" class="painel mb-4" novalidate>
     {% if form.non_field_errors %}
     <div class="alert alert-danger">{% include "icones/alerta.html" %}<div>{{ form.non_field_errors }} O filtro não foi aplicado.</div></div>
@@ -37,7 +36,6 @@
     </div>
 </form>
 
-<!-- KPIs -->
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-4 col-xl-2"><div class="painel kpi"><span class="kpi-rotulo">{% include "icones/calendario.html" %} Total</span><span class="kpi-valor">{{ kpis.total }}</span></div></div>
     <div class="col-6 col-md-4 col-xl-2"><div class="painel kpi kpi-confirmada"><span class="kpi-rotulo">{% include "icones/check.html" %} Confirmadas</span><span class="kpi-valor">{{ kpis.confirmadas }}</span></div></div>
@@ -48,7 +46,6 @@
 </div>
 
 <div class="row g-4 mb-4">
-    <!-- Ranking -->
     <div class="col-lg-7">
         <div class="painel h-100">
             <div class="painel-titulo">{% include "icones/sala.html" %} Salas mais reservadas</div>
@@ -72,7 +69,6 @@
         </div>
     </div>
 
-    <!-- Distribuição por status -->
     <div class="col-lg-5">
         <div class="painel h-100">
             <div class="painel-titulo">{% include "icones/info.html" %} Reservas por status</div>

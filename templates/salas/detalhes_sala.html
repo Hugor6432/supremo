@@ -8,7 +8,6 @@
 
 <div class="row g-4">
     <div class="col-lg-8">
-        <!-- Informações da sala -->
         <div class="painel mb-4">
             <div class="painel-titulo">{% include "icones/info.html" %} Informações da sala</div>
             <div class="row g-3">
@@ -54,7 +53,6 @@
             </div>
         </div>
 
-        <!-- Próximas reservas -->
         <div class="painel">
             <div class="painel-titulo">{% include "icones/relogio.html" %} Próximas reservas</div>
             {% if proximas %}
@@ -95,7 +93,6 @@
         </div>
     </div>
 
-    <!-- Recursos -->
     <div class="col-lg-4">
         <div class="painel">
             <div class="painel-titulo">{% include "icones/recurso.html" %} Recursos ({{ recursos|length }})</div>

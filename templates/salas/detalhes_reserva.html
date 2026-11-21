@@ -9,7 +9,6 @@
 <div class="row g-4">
     <div class="col-lg-8">
 
-        <!-- Card Principal -->
         <div class="card faixa-{{ reserva.status }} mb-4">
             <div class="card-body p-4">
                 <div class="reserva-topo">
@@ -18,7 +17,6 @@
                 </div>
 
                 <div class="row g-3">
-                    <!-- Responsável -->
                     <div class="col-12">
                         <div class="info">
                             <span class="ico-info">{% include "icones/usuario.html" %}</span>
@@ -26,7 +24,6 @@
                         </div>
                     </div>
 
-                    <!-- Data e Hora -->
                     <div class="col-md-6">
                         <div class="info">
                             <span class="ico-info">{% include "icones/relogio.html" %}</span>
@@ -40,7 +37,6 @@
                         </div>
                     </div>
 
-                    <!-- Recorrência -->
                     <div class="col-md-6">
                         <div class="info">
                             <span class="ico-info">{% include "icones/repetir.html" %}</span>
@@ -61,7 +57,6 @@
                         </div>
                     </div>
 
-                    <!-- Descrição -->
                     {% if reserva.descricao %}
                     <div class="col-12">
                         <div class="info">
@@ -72,7 +67,6 @@
                     {% endif %}
                 </div>
 
-                <!-- Aviso de Conflito -->
                 {% if reserva.tem_conflito %}
                 <div class="alert alert-warning alert-dismissible fade show mt-4 mb-0" role="alert">
                     {% include "icones/alerta.html" %}
@@ -81,7 +75,6 @@
                 </div>
                 {% endif %}
 
-                <!-- Botões de Ação -->
                 {% if eh_operador or pode_alterar %}
                 <div class="barra-acoes rodape-form">
                     {% if eh_operador and reserva.status == 'pendente' %}
@@ -109,7 +102,6 @@
         </div>
     </div>
 
-    <!-- Card Recursos da Sala -->
     <div class="col-lg-4">
         <div class="painel">
             <div class="painel-titulo">{% include "icones/recurso.html" %} Recursos Disponíveis Nesta Sala</div>

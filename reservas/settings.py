@@ -77,7 +77,6 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
-# Login
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'lista_salas'
 LOGOUT_REDIRECT_URL = 'login'

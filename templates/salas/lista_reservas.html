@@ -12,19 +12,16 @@
     <div class="col-md-6 col-lg-4">
         <div class="card item h-100 faixa-{{ reserva.status }}">
             <div class="card-body d-flex flex-column">
-                <!-- Sala e status -->
                 <div class="reserva-topo">
                     <h5>{{ reserva.sala.nome }}</h5>
                     <span class="status status-{{ reserva.status }}">{{ reserva.get_status_display }}</span>
                 </div>
 
-                <!-- Responsável -->
                 <div class="info">
                     <span class="ico-info">{% include "icones/usuario.html" %}</span>
                     <div><span class="rotulo">Responsável</span><span class="valor">{{ reserva.responsavel_exibicao }}</span></div>
                 </div>
 
-                <!-- Datas -->
                 <div class="info">
                     <span class="ico-info">{% include "icones/relogio.html" %}</span>
                     <div>
@@ -34,7 +31,6 @@
                     </div>
                 </div>
 
-                <!-- Descrição -->
                 {% if reserva.descricao %}
                 <div class="info">
                     <span class="ico-info">{% include "icones/nota.html" %}</span>
@@ -42,14 +38,12 @@
                 </div>
                 {% endif %}
 
-                <!-- Recorrência -->
                 {% if reserva.recorrencia %}
                 <div class="mb-2"><span class="tag tag-serie">{% include "icones/repetir.html" %} {{ reserva.recorrencia.rotulo }}</span></div>
                 {% endif %}
 
                 <hr>
 
-                <!-- Recursos da Sala -->
                 <div class="mb-1">
                     <div class="secao-rotulo">{% include "icones/recurso.html" %} Recursos da Sala ({{ reserva.sala.recursos.count }})</div>
                     {% if reserva.sala.recursos.all %}
@@ -63,7 +57,6 @@
                     {% endif %}
                 </div>
 
-                <!-- Ações -->
                 <div class="acoes mt-auto pt-3">
                     <a href="{% url 'detalhes_reserva' reserva.id %}" class="btn btn-sm btn-info largo">{% include "icones/olho.html" %}Ver Detalhes</a>
                     {% if eh_operador and reserva.status == 'pendente' %}

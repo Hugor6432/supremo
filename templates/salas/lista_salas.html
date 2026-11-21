@@ -44,15 +44,12 @@
     {% for sala in salas %}
     <div class="col-md-6 col-lg-4">
         <div class="card item h-100">
-            <!-- Header da Sala -->
             <div class="card-header d-flex justify-content-between align-items-center gap-2">
                 <h5><a href="{% url 'detalhes_sala' sala.id %}" class="link-sala stretched-link">{{ sala.nome }}</a></h5>
                 {% if sala.exige_aprovacao %}<span class="papel" title="Reservas novas ficam pendentes até um operador aprovar.">Exige aprovação</span>{% endif %}
             </div>
 
-            <!-- Body da Sala -->
             <div class="card-body d-flex flex-column">
-                <!-- Informações Principais -->
                 <div class="info">
                     <span class="ico-info">{% include "icones/pessoas.html" %}</span>
                     <div><span class="rotulo">Capacidade</span><span class="valor">{{ sala.capacidade }} pessoas</span></div>
@@ -66,7 +63,6 @@
 
                 <hr>
 
-                <!-- Recursos -->
                 <div class="mb-1">
                     <div class="secao-rotulo">{% include "icones/recurso.html" %} Recursos ({{ sala.recursos.count }})</div>
                     {% if sala.recursos.all %}
@@ -84,7 +80,6 @@
                 </div>
 
                 {% if eh_operador %}
-                <!-- Ações -->
                 <div class="acoes mt-auto pt-3">
                     <a href="{% url 'editar_sala' sala.id %}" class="btn btn-sm btn-warning">{% include "icones/editar.html" %}Editar</a>
                     <a href="{% url 'deletar_sala' sala.id %}" class="btn btn-sm btn-danger">{% include "icones/lixeira.html" %}Deletar</a>

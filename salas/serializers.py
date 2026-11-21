@@ -101,7 +101,6 @@ class ReservaSerializer(FiltraPorOrganizacaoMixin, serializers.ModelSerializer):
         data_inicio = valor('data_inicio')
         data_fim = valor('data_fim')
 
-        # Término depois do início
         if data_inicio and data_fim and data_fim <= data_inicio:
             raise serializers.ValidationError(
                 "O horário de término da reserva deve ser depois do horário de início."
@@ -117,7 +116,6 @@ class ReservaSerializer(FiltraPorOrganizacaoMixin, serializers.ModelSerializer):
                 raise serializers.ValidationError({campo or 'non_field_errors': [mensagem] for campo, mensagem in erros})
             return data
 
-        # Conflito de horário
         reserva = Reserva(
             id=getattr(self.instance, 'id', None),
             sala=valor('sala'),

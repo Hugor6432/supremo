@@ -46,8 +46,7 @@ RecursoFormSet = forms.inlineformset_factory(
 class ReservaForm(forms.ModelForm):
     class Meta:
         model = Reserva
-        # Status, criado_por e responsavel são definidos pelo sistema
-        # A recorrência é criada pelo sistema a partir dos campos de repetição
+        # Status, dono, responsável e recorrência são definidos pelo sistema
         fields = ['sala', 'data_inicio', 'data_fim', 'descricao']
         widgets = {
             'sala': forms.Select(attrs={'class': 'form-control'}),
@@ -58,7 +57,6 @@ class ReservaForm(forms.ModelForm):
 
     def __init__(self, *args, org=None, **kwargs):
         super().__init__(*args, **kwargs)
-        # Mostra só salas da organização do usuário
         self.fields['sala'].queryset = Sala.objects.filter(organizacao=org).order_by('nome')
 
     # Feature 2 - Validação customizada
@@ -67,7 +65,6 @@ class ReservaForm(forms.ModelForm):
         data_inicio = self.cleaned_data.get('data_inicio')
         data_fim = self.cleaned_data.get('data_fim')
 
-        # Só compara se as duas datas foram preenchidas corretamente
         if data_inicio and data_fim and data_fim <= data_inicio:
             raise forms.ValidationError(
                 "O horário de término da reserva deve ser depois do horário de início."

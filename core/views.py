@@ -8,7 +8,6 @@ from .forms import CadastroForm
 
 
 def cadastro(request):
-    # Quem já está logado não precisa criar conta
     if request.user.is_authenticated:
         return redirect('lista_salas')
     if request.method == 'POST':
