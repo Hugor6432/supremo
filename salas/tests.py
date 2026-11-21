@@ -1108,3 +1108,35 @@ class RecorrenciaTest(Base):
         for campo in ['name="repetir"', 'name="a_cada"', 'name="ate"', 'Não repetir', 'Todo dia', 'Toda semana', 'Todo mês']:
             self.assertContains(resp, campo)
         self.assertNotContains(resp, 'name="recorrencia"')
+
+
+# ===== DESEMPENHO (N+1) =====
+
+class DesempenhoTest(Base):
+    def popula(self, n_salas):
+        # Cada sala com 3 recursos e 2 reservas
+        for _ in range(n_salas):
+            sala = Sala.objects.create(organizacao=self.org_a, nome=f'Sala extra {Sala.todos.count()}', capacidade=5)
+            for j in range(3):
+                Recurso.objects.create(organizacao=self.org_a, sala=sala, nome=f'Recurso {j}')
+            for k in range(2):
+                self.reserva(self.usuario, 48 + 24 * k + Sala.todos.count(), sala=sala)
+
+    def confere(self, url, consultas):
+        # O número de consultas não cresce com a quantidade de dados
+        self.client.force_login(self.operador)
+        self.popula(2)
+        with self.assertNumQueries(consultas):
+            self.assertEqual(self.client.get(url).status_code, 200)
+        self.popula(5)
+        with self.assertNumQueries(consultas):
+            self.assertEqual(self.client.get(url).status_code, 200)
+
+    def test_lista_de_salas(self):
+        self.confere(reverse('lista_salas'), 7)
+
+    def test_lista_de_reservas(self):
+        self.confere(reverse('lista_reservas'), 6)
+
+    def test_detalhes_da_sala(self):
+        self.confere(reverse('detalhes_sala', args=[self.sala.id]), 7)

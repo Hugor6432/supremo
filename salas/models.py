@@ -170,3 +170,8 @@ class Reserva(DaOrganizacao, ExclusaoSuave):
     class Meta:
         verbose_name_plural = "Reservas"
         ordering = ['-data_inicio']
+        # Listas, conflito e dashboard filtram por data e status
+        indexes = [
+            models.Index(fields=['data_inicio'], name='reserva_data_inicio_idx'),
+            models.Index(fields=['status'], name='reserva_status_idx'),
+        ]

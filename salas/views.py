@@ -38,7 +38,8 @@ def lista_salas(request):
     if recurso:
         salas = salas.filter(recursos__nome=recurso)
 
-    salas = salas.distinct().order_by('nome')
+    # Recursos carregados de uma vez, sem uma consulta por sala
+    salas = salas.distinct().order_by('nome').prefetch_related('recursos')
 
     contexto = {
         'salas': salas,
@@ -152,7 +153,11 @@ def _checa_dono(request, reserva):
 @login_required
 def lista_reservas(request):
     org = org_atual(request)
-    reservas = Reserva.objects.filter(organizacao=org).select_related('sala', 'recorrencia', 'criado_por')
+    reservas = (
+        Reserva.objects.filter(organizacao=org)
+        .select_related('sala', 'recorrencia', 'criado_por')
+        .prefetch_related('sala__recursos')
+    )
     # Diz ao template quais botões cada reserva pode mostrar
     for reserva in reservas:
         reserva.pode_alterar_aqui = reserva.pode_alterar(request.user)
