@@ -1539,3 +1539,32 @@ class ReservasPropriasTest(Base):
         for url, consultas in [(reverse('lista_reservas'), 6), (reverse('detalhes_sala', args=[self.sala.id]), 7)]:
             with self.assertNumQueries(consultas):
                 self.client.get(url)
+
+
+# ===== MIGRAÇÃO: ORGANIZAÇÃO PADRÃO =====
+
+class MigracaoOrgPadraoTest(TransactionTestCase):
+    ANTES = [('salas', '0002_organizacao_nula')]
+
+    def volta_para_antes(self):
+        executor = MigrationExecutor(connection)
+        executor.migrate(self.ANTES)
+        return executor.loader.project_state(self.ANTES).apps
+
+    def migra_tudo(self):
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
+
+    def test_banco_vazio_nao_cria_organizacao_padrao(self):
+        self.volta_para_antes()
+        self.migra_tudo()
+        self.assertFalse(Organizacao.objects.filter(nome='Organização padrão').exists())
+        self.assertEqual(Organizacao.objects.count(), 0)
+
+    def test_sala_antiga_vai_para_organizacao_padrao(self):
+        apps = self.volta_para_antes()
+        apps.get_model('salas', 'Sala').objects.create(nome='Sala da P1', capacidade=10)
+        self.migra_tudo()
+        sala = Sala.objects.get(nome='Sala da P1')
+        self.assertEqual(sala.organizacao.nome, 'Organização padrão')
