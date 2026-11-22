@@ -1541,6 +1541,51 @@ class ReservasPropriasTest(Base):
                 self.client.get(url)
 
 
+# ===== SUPERUSUÁRIO SEM PERFIL =====
+
+class SuperusuarioSemPerfilTest(TestCase):
+    def setUp(self):
+        self.super = User.objects.create_superuser('chefe', password='senha-teste-123')
+
+    def entra(self, user):
+        self.client.force_login(user)
+        return self.client.get(reverse('lista_salas'))
+
+    def test_ganha_perfil_na_unica_organizacao(self):
+        org = Organizacao.objects.create(nome="Única")
+        resp = self.entra(self.super)
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, "Acesso negado")
+        perfil = Perfil.objects.get(usuario=self.super)
+        self.assertEqual(perfil.organizacao, org)
+        self.assertEqual(perfil.papel, Perfil.ADMINISTRADOR)
+
+    def test_sem_organizacao_cria_minha_organizacao(self):
+        resp = self.entra(self.super)
+        self.assertEqual(resp.status_code, 200)
+        perfil = Perfil.objects.get(usuario=self.super)
+        self.assertEqual(perfil.organizacao.nome, "Minha Organização")
+        self.assertEqual(Organizacao.objects.count(), 1)
+
+    def test_duas_organizacoes_vai_para_o_admin(self):
+        Organizacao.objects.create(nome="Org A")
+        Organizacao.objects.create(nome="Org B")
+        resp = self.entra(self.super)
+        url_admin = reverse('admin:auth_user_change', args=[self.super.pk])
+        self.assertRedirects(resp, url_admin, fetch_redirect_response=False)
+        self.assertFalse(Perfil.objects.filter(usuario=self.super).exists())
+        resp = self.client.get(url_admin)
+        self.assertContains(resp, "Escolha a sua organização para usar o site")
+
+    def test_usuario_comum_sem_perfil_continua_403(self):
+        Organizacao.objects.create(nome="Única")
+        comum = User.objects.create_user('comum', password='senha-teste-123')
+        resp = self.entra(comum)
+        self.assertEqual(resp.status_code, 403)
+        self.assertContains(resp, "Acesso negado", status_code=403)
+        self.assertFalse(Perfil.objects.filter(usuario=comum).exists())
+
+
 # ===== MIGRAÇÃO: ORGANIZAÇÃO PADRÃO =====
 
 class MigracaoOrgPadraoTest(TransactionTestCase):

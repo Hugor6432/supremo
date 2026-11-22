@@ -4,7 +4,7 @@ from .models import Perfil
 
 
 def org_atual(request):
-    # Usuário sem perfil (ex.: superusuário) não acessa as telas
+    # Usuário sem perfil não acessa as telas (superusuário ganha um no middleware)
     perfil = getattr(request.user, 'perfil', None)
     if perfil is None:
         raise PermissionDenied(
