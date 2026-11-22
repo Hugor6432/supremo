@@ -43,8 +43,13 @@ python manage.py runserver
 - Admin: http://127.0.0.1:8000/admin/
 - Testes: `python manage.py test salas`
 
-No Admin, crie uma **Organização** e depois os **Usuários**, escolhendo o tipo (Usuário,
-Funcionário ou Administrador) e a organização. Quem não tem organização não acessa as telas do site.
+Depois do `createsuperuser`, é só entrar no site com esse usuário. No primeiro acesso ele vira
+o **Administrador** da organização: se ainda não houver nenhuma, o sistema cria a
+"Minha Organização"; se houver mais de uma, ele é levado ao Admin para escolher a sua.
+
+O **Admin** serve para criar os **funcionários e usuários**: em Usuários, escolha o tipo
+(Usuário, Funcionário ou Administrador) e a organização. Usuário comum sem organização não acessa
+as telas do site.
 
 ## 3. Quem pode o quê
 
@@ -85,7 +90,7 @@ série de reservas, página da sala, dashboard e CSV.
 
 ## 5. Testes
 
-`python manage.py test salas` roda num banco de teste separado. **111 de 111 testes passaram.**
+`python manage.py test salas` roda num banco de teste separado. **117 de 117 testes passaram.**
 
 | Área | Testes |
 |---|---:|
@@ -97,4 +102,5 @@ série de reservas, página da sala, dashboard e CSV.
 | Exclusão registrada, restauração e histórico | 12 |
 | Dashboard: tela, período, permissões, CSV e API | 22 |
 | Usuário comum vê só as próprias reservas | 6 |
+| Superusuário sem organização e migração da "Organização padrão" | 6 |
 | Desempenho (número de consultas fixo nas telas principais) | 3 |
